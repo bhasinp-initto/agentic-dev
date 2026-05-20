@@ -1,6 +1,9 @@
 {
   "name": "agentic-dev-marketplace",
   "description": "Marketplace hosting the agentic-dev plugin",
+  "owner": {
+    "name": "Pankaj Bhasin"
+  },
   "plugins": [
     {
       "name": "agentic-dev",
