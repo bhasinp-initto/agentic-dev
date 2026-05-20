@@ -17,8 +17,11 @@ set -euo pipefail
 SPEC_FILE=""
 if [[ $# -eq 1 ]]; then
   SPEC_FILE="$1"
-elif [[ -p /dev/stdin ]]; then
+elif [[ ! -t 0 ]]; then
   # Hook mode: read JSON from stdin, extract file_path
+  # Uses [[ ! -t 0 ]] (stdin is not a terminal) to handle both anonymous
+  # pipes and file-redirected stdin, as Claude Code may deliver hook JSON
+  # via either mechanism.
   INPUT="$(cat)"
   SPEC_FILE="$(printf '%s' "$INPUT" | python3 -c 'import sys, json; d=json.load(sys.stdin); print(d.get("tool_input",{}).get("file_path",""))')"
   if [[ -z "$SPEC_FILE" ]]; then
@@ -40,10 +43,13 @@ if [[ ! -f "$SPEC_FILE" ]]; then
 fi
 
 # Helpers
+# Note: failure messages go to stdout so that Claude Code's PostToolUse hook
+# mechanism feeds them back into the Claude transcript. The unit tests capture
+# both stdout+stderr, so they are unaffected by this choice.
 fail() {
-  echo "agentic-dev: spec validation failed" >&2
-  echo "  file: $SPEC_FILE" >&2
-  echo "  ERROR: $*" >&2
+  echo "agentic-dev: spec validation failed"
+  echo "  file: $SPEC_FILE"
+  echo "  ERROR: $*"
   exit 1
 }
 
@@ -118,11 +124,21 @@ if dt.tzinfo is None:
     print(f"PARSE_ERROR: created_at must include timezone offset (e.g., 'Z' or '+00:00'), got {fm['created_at']!r}")
     sys.exit(0)
 
-# Resolve intent_path relative to current working directory
+# Resolve intent_path: try cwd-relative first, then project-root-relative.
+# The spec file lives at <project-root>/.claude/agentic/specs/*.md, so the
+# project root is spec_file/../../../.. (4 parents up).
+# This handles hook mode where Claude Code may invoke the hook from a
+# directory other than the project root.
 intent_path = fm["intent_path"]
 if not os.path.exists(intent_path):
-    print(f"PARSE_ERROR: intent_path does not resolve to a file: {intent_path}")
-    sys.exit(0)
+    # Try resolving relative to the project root derived from the spec path
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(spec_file))))
+    alt_path = os.path.join(project_root, intent_path)
+    if os.path.exists(alt_path):
+        intent_path = alt_path
+    else:
+        print(f"PARSE_ERROR: intent_path does not resolve to a file: {fm['intent_path']}")
+        sys.exit(0)
 
 print(f"OK approved={fm['approved']}")
 PY
@@ -175,11 +191,11 @@ fi
 if [[ "$APPROVED" == "True" ]]; then
   if grep -qE '<!-- QUESTION-[0-9]+ ' "$SPEC_FILE"; then
     QUESTIONS="$(grep -nE '<!-- QUESTION-[0-9]+ ' "$SPEC_FILE" | sed -E 's/^([0-9]+):.*<!-- (QUESTION-[0-9]+) \(([^)]+)\).*/  - \2 (\3) at line \1/')"
-    echo "agentic-dev: spec validation failed" >&2
-    echo "  file: $SPEC_FILE" >&2
-    echo "  ERROR: approved=true but unresolved QUESTION blocks remain:" >&2
-    echo "$QUESTIONS" >&2
-    echo "  Either answer those questions or set approved=false." >&2
+    echo "agentic-dev: spec validation failed"
+    echo "  file: $SPEC_FILE"
+    echo "  ERROR: approved=true but unresolved QUESTION blocks remain:"
+    echo "$QUESTIONS"
+    echo "  Either answer those questions or set approved=false."
     exit 1
   fi
   if grep -qF "[REPLACE THIS LINE" "$SPEC_FILE"; then
