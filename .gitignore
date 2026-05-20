@@ -25,6 +25,10 @@ node_modules/
 
 # Ruflo / RuVector local DB
 ruvector.db
+agentdb.rvf
+agentdb.rvf.lock
+*.rvf
+*.rvf.lock
 
 # Plugin-local test artifacts
 tests/**/.tmp/

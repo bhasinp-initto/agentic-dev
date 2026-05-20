@@ -4,7 +4,7 @@
 
 **Goal:** Ship v0.1 of the `agentic-dev` Claude plugin: an installable scaffold with two working skills (`/agentic-dev:init` to bootstrap a host project's `.claude/agentic/` state tree, and `/agentic-dev:status` to inspect that state), plus the schemas and tests that the later phases will build on.
 
-**Architecture:** A standalone Claude plugin directory (`agentic-dev/`) containing a manifest, two SKILL.md skill files, JSON Schemas for the per-project state files (`state.json`, `queue.yaml`, `config.yaml`), and a `marketplace.json` at the repo root that lets `agentic-dev` be installed via `/plugin marketplace add`. End-to-end testing is done with bash test scripts that drive `claude --plugin-dir ./agentic-dev` programmatically against throwaway host projects. No subagents, no hooks, no notification helpers in this phase — those land in P2–P5.
+**Architecture:** A standalone Claude plugin directory (`agentic-dev/`) containing a manifest, two SKILL.md skill files, JSON Schemas for the per-project state files (`state.json`, `queue.yaml`, `config.yaml`), and a `.claude-plugin/marketplace.json` at the repo root (per Anthropic plugin marketplace docs) that lets `agentic-dev` be installed via `/plugin marketplace add`. End-to-end testing is done with bash test scripts that drive `claude --plugin-dir ./agentic-dev` programmatically against throwaway host projects. No subagents, no hooks, no notification helpers in this phase — those land in P2–P5.
 
 **Tech Stack:** Markdown (skills), JSON (manifest, schemas), YAML (per-project state files), Bash (test scripts), Python stdlib + `jsonschema` (schema validation in tests), `claude --plugin-dir` (local plugin testing).
 
@@ -27,7 +27,7 @@ Files created in Phase 1:
 - `agentic-dev/.gitkeep` files in empty directories that should be tracked
 
 **Repo-root files:**
-- `marketplace.json` — declares `agentic-dev` plugin for the marketplace
+- `.claude-plugin/marketplace.json` (at repo root) — declares `agentic-dev` plugin for the marketplace; required fields: `name`, `owner`, `plugins`
 
 **Test infrastructure:**
 - `tests/README.md` — how to run phase-1 tests
@@ -60,7 +60,7 @@ The plugin's skills are markdown prompts that instruct Claude to do work. We can
 **Files:**
 - Create: `agentic-dev/.claude-plugin/plugin.json`
 - Create: `agentic-dev/README.md`
-- Create: `marketplace.json`
+- Create: `.claude-plugin/marketplace.json` (at REPO ROOT — note: this is a separate `.claude-plugin/` directory from the one inside `agentic-dev/`)
 
 - [ ] **Step 1: Create the plugin directory and manifest**
 
@@ -132,13 +132,27 @@ Reports the current queue, circuit-breaker state, and recent activity.
 See repo issues / phase plans for P2 onward: spec drafter, implementer, hardened reviewer, deterministic gates, overnight queue, escalation.
 ````
 
-- [ ] **Step 3: Create the repo-root marketplace.json**
+- [ ] **Step 3: Create the marketplace manifest at `.claude-plugin/marketplace.json` (repo root)**
 
-Create `/Users/pankajbhasin/Pankaj/gitdev/agenticDev/marketplace.json` with:
+Per Anthropic plugin marketplace docs (https://code.claude.com/docs/en/plugin-marketplaces), the marketplace catalog MUST live at `<repo-root>/.claude-plugin/marketplace.json`, and the top-level required fields are `name`, `owner`, and `plugins`. The `owner` object requires at least `owner.name`.
+
+Note: two `.claude-plugin/` directories will exist after this step, with different purposes:
+- `<repo-root>/.claude-plugin/marketplace.json` — the marketplace catalog (created here)
+- `<repo-root>/agentic-dev/.claude-plugin/plugin.json` — the plugin manifest (created in Step 1)
+
+Create the directory first if it doesn't exist:
+```bash
+mkdir -p .claude-plugin
+```
+
+Create `/Users/pankajbhasin/Pankaj/gitdev/agenticDev/.claude-plugin/marketplace.json` with:
 ```json
 {
   "name": "agentic-dev-marketplace",
   "description": "Marketplace hosting the agentic-dev plugin",
+  "owner": {
+    "name": "Pankaj Bhasin"
+  },
   "plugins": [
     {
       "name": "agentic-dev",
@@ -161,12 +175,13 @@ Expected: no errors about plugin manifest; output contains `plugin-loaded-ok` or
 - [ ] **Step 5: Commit**
 
 ```bash
-git add agentic-dev/.claude-plugin/plugin.json agentic-dev/README.md marketplace.json
+git add agentic-dev/.claude-plugin/plugin.json agentic-dev/README.md .claude-plugin/marketplace.json
 git commit -m "$(cat <<'EOF'
 feat(plugin): add agentic-dev plugin scaffold
 
-Empty plugin manifest, README, and marketplace.json. Plugin loads cleanly
-via --plugin-dir but ships no skills yet.
+Empty plugin manifest, README, and marketplace catalog at the canonical
+.claude-plugin/marketplace.json path. Plugin loads cleanly via --plugin-dir
+but ships no skills yet.
 
 Phase 1 task 1/6.
 
@@ -1357,7 +1372,7 @@ EOF
 **Files:**
 - Modify: `agentic-dev/README.md` (add link to source spec and tests)
 - Create: `agentic-dev/CHANGELOG.md`
-- Modify: `marketplace.json` (update description if needed)
+- Modify: `.claude-plugin/marketplace.json` (update description if needed)
 
 - [ ] **Step 1: Add a "Development" section to the plugin README**
 

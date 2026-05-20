@@ -588,7 +588,7 @@ Roughly 2–3 weeks of focused work, less if we descope:
 5. **Deterministic gate scripts in `bin/`** — scope, sensitive-path, budget, test-count, rerun-tests, bisect-on-claim, strip-implementer-prose, telegram-send
 6. **Hook wiring** in `hooks/hooks.json` to invoke the gate scripts at the right Claude Code events
 7. **Plugin `.mcp.json`** declaring Telegram MCP dependency
-8. **Marketplace** — `marketplace.json` listing the plugin, hosted in a git repo for private install
+8. **Marketplace** — `.claude-plugin/marketplace.json` at repo root listing the plugin (per Anthropic plugin marketplace docs), hosted in a git repo for private install
 9. **Plugin-level README + CLAUDE.md template** for host projects (so new sessions in a host project have context)
 10. **Local install validation** — `claude --plugin-dir ./agentic-dev` end-to-end smoke test against a throwaway project
 
@@ -609,8 +609,14 @@ How `agentic-dev` gets built, hosted, installed, configured, and upgraded.
 
 A single git repository (this one, `agenticDev/`) holds:
 - The plugin source tree under `agentic-dev/` (created in v1 implementation)
-- A `marketplace.json` at the repo root declaring the plugin
+- `.claude-plugin/marketplace.json` at the repo root declaring the plugin (required path per Anthropic plugin marketplace docs; required top-level fields: `name`, `owner`, `plugins`)
 - This design doc, planning docs, and any future ADRs under `docs/`
+
+Note: two `.claude-plugin/` directories exist in this repo, with different purposes:
+- `<repo-root>/.claude-plugin/marketplace.json` — marketplace catalog
+- `<repo-root>/agentic-dev/.claude-plugin/plugin.json` — plugin manifest
+
+This is the documented layout; both are correct.
 
 The plugin is the only thing distributed; the rest is project documentation.
 
