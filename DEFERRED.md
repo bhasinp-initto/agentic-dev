@@ -10,7 +10,7 @@ This file is the single source of truth for tech debt across phases. Add to it w
 
 ### P1-DEF-001 — Queue goal schema extension strategy
 
-**Source:** Phase 1 final code review (commit `64cdea4` review).
+**Source:** Phase 1 final holistic code review.
 **What:** `agentic-dev/schemas/queue.schema.json` uses `additionalProperties: false` on goal items. Allowed fields today: `id`, `status`, `spec_path`, `intent_path`, `added_at`. P2's `/agentic-dev:intent` skill will likely need to add fields (`started_at`, `budget_overrides`, `worktree_path`, etc.) to goal items.
 **Decision required:** Either bump `schema_version` to `"0.2"` and add fields explicitly, OR relax `additionalProperties` to `false` only at the top-level queue, not on goal items.
 **Target:** P2-T1 (first task of Phase 2) — decide before writing any code that writes goals.
@@ -21,7 +21,7 @@ This file is the single source of truth for tech debt across phases. Add to it w
 
 ### P1-DEF-002 — Halted-state SKILL.md display block lacks integration test
 
-**Source:** T4 code review (commit `1cc05ee`).
+**Source:** T4 code review.
 **What:** `agentic-dev/skills/status/SKILL.md` specifies that when `circuit_breaker.state == "halted"`, the status output appends a halt block (reason, at, goal). No test exercises this — the schema's positive halted-state fixture validates the SHAPE but no `status_test` invocation drives a halted state through `/agentic-dev:status`.
 **Target:** P5 (when escalation/halt logic ships) — add a `status_test_halted.sh` or extend `status_test.sh` with a second pre-populated state.
 
@@ -37,7 +37,7 @@ This file is the single source of truth for tech debt across phases. Add to it w
 
 ### P1-DEF-004 — Smoke assertions are fail-fast, not fail-accumulate
 
-**Source:** T5 code review (commit `0ea7210`).
+**Source:** T5 code review.
 **What:** `tests/phase-1/smoke_test.sh` uses `exit 1` on first failed grep assertion, vs. `status_test.sh` which accumulates with `ok=0` and reports all failures before exiting. Fail-accumulate gives better signal during iteration.
 **Target:** Phase 2 test polish (low priority).
 
@@ -55,7 +55,7 @@ This file is the single source of truth for tech debt across phases. Add to it w
 
 ### P1-DEF-007 — Refactor Python heredocs into a shared schema-validation helper
 
-**Source:** T2 code review (commit `61c563a`).
+**Source:** T2 code review.
 **What:** `tests/phase-1/init_test.sh` has three nearly-identical Python heredocs that load a schema, parse a YAML/JSON file, and validate. Factoring into `tests/lib/validate-schema.py` would reduce duplication.
 **Target:** P2 or whenever a fourth state file is added to the test surface.
 
