@@ -1,0 +1,10 @@
+{
+  "name": "agentic-dev",
+  "description": "Three-role agentic development pattern: autonomous overnight loop with hardened reviewer and human-in-the-loop escalation. See repo README for design.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Pankaj Bhasin"
+  },
+  "homepage": "https://github.com/Pankaj-Bhasin/agenticDev",
+  "license": "MIT"
+}

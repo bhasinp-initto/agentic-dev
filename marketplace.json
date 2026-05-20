@@ -1,0 +1,11 @@
+{
+  "name": "agentic-dev-marketplace",
+  "description": "Marketplace hosting the agentic-dev plugin",
+  "plugins": [
+    {
+      "name": "agentic-dev",
+      "source": "./agentic-dev",
+      "description": "Three-role agentic development pattern with hardened reviewer and human-in-the-loop escalation"
+    }
+  ]
+}
