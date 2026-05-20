@@ -41,3 +41,21 @@ Reports the current queue, circuit-breaker state, and recent activity.
 ## What's coming next
 
 See repo issues / phase plans for P2 onward: spec drafter, implementer, hardened reviewer, deterministic gates, overnight queue, escalation.
+
+## Development
+
+Source repository: https://github.com/Pankaj-Bhasin/agenticDev
+
+To run the test suite from the source repo:
+
+```bash
+bash tests/phase-1/run_all.sh
+```
+
+Design and architecture:
+- `docs/superpowers/specs/2026-05-20-three-role-agentic-pattern-design.md` — full design
+- `docs/superpowers/plans/2026-05-20-agentic-dev-phase-1-plugin-skeleton.md` — Phase 1 implementation plan
+
+## Changelog
+
+See `agentic-dev/CHANGELOG.md`.
