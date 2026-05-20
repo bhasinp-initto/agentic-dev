@@ -87,6 +87,12 @@ This file is the single source of truth for tech debt across phases. Add to it w
 **What:** Defined at lines 43–50, never invoked. Use it for the file-existence checks or delete it.
 **Target:** v0.2.x polish.
 
+### P2-DEF-004 — Validator's intent_path fallback uses `dirname × 4` hardcode
+
+**Source:** T3 code review.
+**What:** `agentic-dev/bin/validate-spec.sh`'s project-root derivation for the intent_path fallback hardcodes 4 levels of `os.path.dirname` based on the canonical spec path `.claude/agentic/specs/<file>.md`. If a future phase introduces nested spec directories (e.g., `specs/p3/<file>.md`), the fallback will yield the wrong project root. A robust replacement would walk upward looking for the `.claude/agentic` directory.
+**Target:** v0.2.x or whenever spec directory structure changes.
+
 ---
 
 ## How to use this file

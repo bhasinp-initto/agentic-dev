@@ -35,6 +35,10 @@ fi
 
 # Now run the intent skill
 intent_out="$TMP_PROJECT/_intent_output.txt"
+# Note: the PostToolUse hook from agentic-dev/hooks/hooks.json will fire when
+# the intent skill writes the spec. The hook's stdout ends up in $intent_out
+# alongside the skill's own output. Test assertions are file-content based,
+# not stdout-based, so this is benign.
 claude --plugin-dir "$PLUGIN_DIR" \
   --dangerously-skip-permissions \
   -p "/agentic-dev:intent Add rate limiting per-tenant to the API" >"$intent_out" 2>&1 || true

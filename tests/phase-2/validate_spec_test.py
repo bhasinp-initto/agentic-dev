@@ -1,7 +1,9 @@
 """Unit tests for agentic-dev/bin/validate-spec.sh.
 
 Each test creates a temporary spec file, runs the validator, asserts the exit
-code and that specific substrings appear in stderr.
+code and that specific substrings appear in the validator's output (stdout +
+stderr concatenated — failure messages go to stdout so Claude Code's hook
+transcript captures them; this test concatenates both for resilience).
 """
 import subprocess
 import sys
