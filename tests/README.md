@@ -40,7 +40,7 @@ Convention used by the tests in this repo:
    export ANTHROPIC_API_KEY='sk-ant-...'
    ```
 2. Set permissions: `chmod 600 ~/.claude/agentic-dev-test.env`
-3. Each test script sources this file at the top if it exists. The file is **outside the repo** and is git-ignored by an absolute-path rule in `.gitignore`. Do NOT commit it.
+3. Each test script sources this file at the top if it exists. The file lives at `~/.claude/` which is **outside this repository** — git never sees it. As defense in depth, `*.env` is also globbed by the repo's `.gitignore`, so even if someone copied the file into the repo by mistake it would not be tracked. Do NOT commit any env file.
 
 If `~/.claude/agentic-dev-test.env` is absent, the tests still run but the headless invocations may fail with auth errors.
 
@@ -67,6 +67,16 @@ bash tests/phase-1/smoke_test.sh
 | `status_test.sh` | `/agentic-dev:status` reads known state and reports correct counts, current goal, config summary; handles not-initialized projects with a clear message. |
 | `smoke_test.sh` | Init followed by status produces consistent state — `circuit breaker: idle`, `queue is empty`, project name reflected. |
 
+## Debugging
+
+When a shell test fails and you want to inspect what was actually written to disk before cleanup:
+
+```bash
+KEEP_TMP=1 bash tests/phase-1/init_test.sh
+```
+
+The test will print `Preserved tmp project at: /tmp/agentic-init-XXXXXX` on exit instead of deleting it. Inspect with `ls /tmp/agentic-*/.claude/agentic/` etc. Remember to `rm -rf` it manually when done.
+
 ## Cost / billing note
 
 The shell tests invoke `claude -p` which counts as **programmatic billing** per Anthropic's June 15, 2026 policy split. Until that date, headless mode requires an API key (pay-per-token). Each Phase 1 test run consumes a few cents in API tokens; the full `run_all.sh` is well under a dollar in typical usage.
@@ -79,6 +89,6 @@ Production use of the `agentic-dev` plugin remains interactive (human-launched C
 |---|---|---|
 | `Credit balance is too low` | API account out of credits | Top up at https://console.anthropic.com/settings/billing |
 | `Unknown command: /agentic-dev:...` | Plugin didn't load | Check `--plugin-dir` path; verify `agentic-dev/.claude-plugin/plugin.json` exists |
-| `FileNotFoundError` for a schema file | Wrong CWD | Tests are designed to be run from the repo root |
+| `FileNotFoundError` for a schema file | Schema file missing | Verify the schema files exist at `agentic-dev/schemas/*.schema.json`. Tests resolve paths from `$0`/`__file__`, not CWD, so running from any directory is fine. |
 | Python heredoc fails with `ImportError` | Missing dependency | Run `pip install -r tests/requirements.txt` |
 | `claude -p` hangs >60s | Network / API issue | Cancel; re-run; check Anthropic status page |

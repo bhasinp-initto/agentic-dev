@@ -4,6 +4,7 @@
 set -euo pipefail
 
 # Source API key for headless testing (Max subscription blocked from -p until June 15 2026)
+# shellcheck source=/dev/null
 [ -f "$HOME/.claude/agentic-dev-test.env" ] && source "$HOME/.claude/agentic-dev-test.env"
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -11,7 +12,8 @@ PLUGIN_DIR="$REPO_ROOT/agentic-dev"
 FIXTURE_INPUT="$REPO_ROOT/tests/phase-1/fixtures/init-input.yaml"
 
 TMP_PROJECT="$(mktemp -d -t agentic-init-XXXXXX)"
-trap 'rm -rf "$TMP_PROJECT"' EXIT
+# Set KEEP_TMP=1 to preserve the tmp project on exit for debugging.
+trap '[ "${KEEP_TMP:-0}" = "1" ] && echo "Preserved tmp project at: $TMP_PROJECT" || rm -rf "$TMP_PROJECT"' EXIT
 
 cd "$TMP_PROJECT"
 git init -q

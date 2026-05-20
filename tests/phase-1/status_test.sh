@@ -4,13 +4,15 @@
 set -euo pipefail
 
 # Source API key for headless testing (Max subscription blocked from -p until June 15 2026).
+# shellcheck source=/dev/null
 [ -f "$HOME/.claude/agentic-dev-test.env" ] && source "$HOME/.claude/agentic-dev-test.env"
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 PLUGIN_DIR="$REPO_ROOT/agentic-dev"
 
 TMP_PROJECT="$(mktemp -d -t agentic-status-XXXXXX)"
-trap 'rm -rf "$TMP_PROJECT"' EXIT
+# Set KEEP_TMP=1 to preserve the tmp project on exit for debugging.
+trap '[ "${KEEP_TMP:-0}" = "1" ] && echo "Preserved tmp project at: $TMP_PROJECT" || rm -rf "$TMP_PROJECT"' EXIT
 
 cd "$TMP_PROJECT"
 
@@ -109,9 +111,9 @@ if echo "$empty_output" | grep -q "not initialized"; then
 else
   echo "FAIL not-initialized: expected 'not initialized' message; got:" >&2
   echo "$empty_output" >&2
-  rm -rf "$TMP_EMPTY"
+  [ "${KEEP_TMP:-0}" = "1" ] && echo "Preserved empty tmp project at: $TMP_EMPTY" || rm -rf "$TMP_EMPTY"
   exit 1
 fi
-rm -rf "$TMP_EMPTY"
+[ "${KEEP_TMP:-0}" = "1" ] && echo "Preserved empty tmp project at: $TMP_EMPTY" || rm -rf "$TMP_EMPTY"
 
 echo "status_test: OK"
