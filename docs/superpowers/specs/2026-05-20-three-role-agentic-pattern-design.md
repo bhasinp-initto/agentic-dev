@@ -314,7 +314,7 @@ The drafter runs concurrently with the implementer when the queue has intent-onl
 
 ## 11. Circuit breaker
 
-Single global state: `{ running, halted, completed }`. Any blocking signal flips to `halted`.
+Single global state: `{ idle, running, halted, completed }`. `idle` is the initial state after `/agentic-dev:init` — the system is initialized but no queue run has started. The orchestrator transitions `idle → running` when a queue run begins. Any blocking signal flips to `halted`. The queue completing without halt transitions to `completed`.
 
 **On halt:**
 1. Current goal's worktree is **frozen in place** (not rolled back). Human inspects it.

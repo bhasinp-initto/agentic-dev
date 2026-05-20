@@ -94,6 +94,30 @@ def main():
         print("PASS negative-state")
         results.append(True)
 
+    # Positive case: a fully populated halted state must validate cleanly.
+    halted_valid = {
+        "schema_version": "0.1",
+        "circuit_breaker": {
+            "state": "halted",
+            "halted_reason": "Reviewer flagged scope violation in auth/",
+            "halted_at": "2026-05-20T15:30:00Z",
+            "halted_goal_id": "2026-05-20-example-goal",
+        },
+        "current_goal": "2026-05-20-example-goal",
+        "last_updated": "2026-05-20T15:30:00Z",
+    }
+    try:
+        jsonschema.validate(
+            instance=halted_valid,
+            schema=schema,
+            format_checker=jsonschema.FormatChecker(),
+        )
+        print("PASS positive-halted")
+        results.append(True)
+    except jsonschema.ValidationError as e:
+        print(f"FAIL positive-halted: valid halted state wrongly rejected — {e.message}")
+        results.append(False)
+
     halted_missing_fields = {
         "schema_version": "0.1",
         "circuit_breaker": {

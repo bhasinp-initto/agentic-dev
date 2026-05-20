@@ -34,5 +34,8 @@ agentdb.rvf.lock
 tests/**/.tmp/
 tests/**/tmp/
 
+# Per-host-project worktrees created by the agentic-dev system at runtime
+.worktrees/
+
 # Claude Code session artifacts that should stay local
 .claude/sessions/

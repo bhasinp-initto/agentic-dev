@@ -25,10 +25,13 @@ git -c user.email=test@test -c user.name=test commit -q -m "initial"
 # goes wrong (manifest parse error, missing key, etc.). The || true is intentional
 # because `claude -p` may exit non-zero for legitimate reasons (timeout, partial
 # completion); subsequent require() assertions detect actual failures.
+# Capture init output to a file (like smoke_test.sh) so failure diagnostics include
+# Claude's stdout/stderr instead of swallowing it.
+init_out="$TMP_PROJECT/_init_output.txt"
 claude --plugin-dir "$PLUGIN_DIR" \
   --dangerously-skip-permissions \
   --add-dir "$(dirname "$FIXTURE_INPUT")" \
-  -p "/agentic-dev:init $FIXTURE_INPUT" >/dev/null || true
+  -p "/agentic-dev:init $FIXTURE_INPUT" >"$init_out" 2>&1 || true
 
 # Assertions
 ok=1
@@ -63,7 +66,11 @@ require .claude/agentic/artifacts/.gitkeep
 require .claude/agentic/escalations/.gitkeep
 require .claude/agentic/prompts/.gitkeep
 
-[[ $ok -eq 1 ]] || exit 1
+if [[ $ok -ne 1 ]]; then
+  echo "--- Init claude output was: ---" >&2
+  cat "$init_out" >&2
+  exit 1
+fi
 
 # Validate the written config against the schema
 python3 - <<PY
