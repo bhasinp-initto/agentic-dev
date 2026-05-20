@@ -1,0 +1,21 @@
+project:
+  name: example-host-project
+  primary_language: javascript
+commands:
+  test: "npm test"
+  lint: "npm run lint"
+  typecheck: null
+  build: null
+budgets:
+  wall_clock_minutes_per_goal: 90
+  diff_lines_per_goal: 800
+  files_touched_per_goal: 25
+sensitive_paths:
+  - "auth/**"
+  - "migrations/**"
+  - "schema/**"
+  - "secrets/**"
+  - "payments/**"
+  - "infra/**"
+telegram: null
+push_policy: hold
