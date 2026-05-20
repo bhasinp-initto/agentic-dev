@@ -1,48 +1,110 @@
 #!/usr/bin/env bash
 # tests/phase-2/hook_test.sh
 #
-# Verifies the validate-spec.sh hook fires on Write|Edit of a spec file
-# under .claude/agentic/specs/*.md and emits the expected messages.
+# Verifies that:
+#   1. agentic-dev/hooks/hooks.json is structurally valid and references
+#      validate-spec.sh as a PostToolUse hook on Write|Edit.
+#   2. validate-spec.sh, when invoked in hook mode (JSON on stdin
+#      describing a Write|Edit tool_input), produces the correct output
+#      for the two key scenarios:
+#         a. approved=true with an unresolved QUESTION block → exits 1
+#            with "spec validation failed" on stdout (Claude Code's hook
+#            transcript captures stdout).
+#         b. approved=true with all QUESTIONs resolved → exits 0 with
+#            "state: approved" + "_check-approval" next-step on stdout.
 #
-# Scope: hook-firing only. Hand-writes the spec file (skipping the drafter)
-# to isolate hook behavior from drafter LLM variance. The full
-# intent → spec → edit → hook chain is exercised incidentally by
-# tests/phase-2/intent_fresh_test.sh.
+# Why direct stdin piping instead of `claude -p`:
+#   Earlier iterations of this test invoked `claude -p` and asked the LLM
+#   to use the Edit tool. That coupled the test to (a) LLM determinism on
+#   tool selection (Edit vs Write vs narration), and (b) Claude Code CLI
+#   flag stability (--output-format=stream-json --include-hook-events).
+#   Both are real fragilities orthogonal to what we built.
 #
-# Reliability notes:
-#  - Uses --output-format=stream-json --include-hook-events to surface hook
-#    output (claude's default --print only shows the assistant's final text).
-#  - The test claude invocations rely on natural-language instructions to
-#    trigger the Edit tool. LLM non-determinism is the principal failure
-#    mode; the test detects this via verify_edit_used() and fails with a
-#    clear diagnostic rather than a generic hook-not-fired message.
-#  - The two assertions check hook-event stdout ONLY, never the assistant's
-#    final response text (which could mention the trigger strings as prose
-#    and produce false positives).
+#   The HOOK FIRING ITSELF is Claude Code platform contract — when a
+#   matching Write|Edit happens, the hook fires. We can trust the
+#   platform on that. What we OWN and need to test is the hook script's
+#   behavior on the inputs Claude Code will deliver.
+#
+#   The full intent → spec → edit → hook chain is exercised incidentally
+#   by tests/phase-2/intent_fresh_test.sh, which now (with the hook
+#   wired) writes specs through claude -p and the hook fires as a side
+#   effect. That test's hook-side-effect output appears in its
+#   _intent_output.txt for diagnostic purposes.
 set -euo pipefail
-
-# shellcheck source=/dev/null
-[ -f "$HOME/.claude/agentic-dev-test.env" ] && source "$HOME/.claude/agentic-dev-test.env"
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 PLUGIN_DIR="$REPO_ROOT/agentic-dev"
-INIT_FIXTURE="$REPO_ROOT/tests/phase-1/fixtures/init-input.yaml"
+VALIDATOR="$PLUGIN_DIR/bin/validate-spec.sh"
+HOOKS_JSON="$PLUGIN_DIR/hooks/hooks.json"
 
 TMP_PROJECT="$(mktemp -d -t agentic-hook-XXXXXX)"
+# Set KEEP_TMP=1 to preserve the tmp project on exit for debugging.
 trap '[ "${KEEP_TMP:-0}" = "1" ] && echo "Preserved tmp project at: $TMP_PROJECT" || rm -rf "$TMP_PROJECT"' EXIT
 
 cd "$TMP_PROJECT"
-git init -q
-git -c user.email=test@test -c user.name=test commit -q --allow-empty -m "initial"
 
-# Init the project
-claude --plugin-dir "$PLUGIN_DIR" \
-  --dangerously-skip-permissions \
-  --add-dir "$(dirname "$INIT_FIXTURE")" \
-  -p "/agentic-dev:init $INIT_FIXTURE" >/dev/null 2>&1 || true
+# ---------------------------------------------------------------------------
+# Section 1: Static checks on hooks.json
+# ---------------------------------------------------------------------------
 
-# Hand-write a valid draft spec (skipping the drafter for hook isolation)
+if [[ ! -f "$HOOKS_JSON" ]]; then
+  echo "FAIL: hooks.json not found at $HOOKS_JSON" >&2
+  exit 1
+fi
+echo "PASS hooks.json exists at $HOOKS_JSON"
+
+# Valid JSON
+if ! python3 -c "import json; json.load(open('$HOOKS_JSON'))" 2>/dev/null; then
+  echo "FAIL: hooks.json is not valid JSON" >&2
+  python3 -c "import json; json.load(open('$HOOKS_JSON'))" >&2 || true
+  exit 1
+fi
+echo "PASS hooks.json is valid JSON"
+
+# Structure: PostToolUse with matcher Write|Edit and command referencing validate-spec.sh
+STRUCTURE_CHECK="$(python3 - <<PY
+import json, sys
+h = json.load(open("$HOOKS_JSON"))
+post = h.get("hooks", {}).get("PostToolUse", [])
+if not post:
+    print("FAIL: hooks.json has no PostToolUse entries")
+    sys.exit(0)
+match_found = False
+cmd_ok = False
+for entry in post:
+    matcher = entry.get("matcher", "")
+    if "Write" in matcher and "Edit" in matcher:
+        match_found = True
+        for h2 in entry.get("hooks", []):
+            cmd = h2.get("command", "")
+            if "validate-spec.sh" in cmd and "\${CLAUDE_PLUGIN_ROOT}" in cmd:
+                cmd_ok = True
+if not match_found:
+    print("FAIL: no PostToolUse entry with Write|Edit matcher")
+elif not cmd_ok:
+    print("FAIL: validate-spec.sh command using \${CLAUDE_PLUGIN_ROOT} not found")
+else:
+    print("OK")
+PY
+)"
+
+if [[ "$STRUCTURE_CHECK" != "OK" ]]; then
+  echo "$STRUCTURE_CHECK" >&2
+  exit 1
+fi
+echo "PASS hooks.json has PostToolUse on Write|Edit referencing \${CLAUDE_PLUGIN_ROOT}/bin/validate-spec.sh"
+
+# ---------------------------------------------------------------------------
+# Section 2: Validator hook-mode behavior on a spec with unresolved QUESTION
+#
+# Simulates the hook input Claude Code passes to a PostToolUse hook: JSON
+# on stdin with a tool_input.file_path. Validator must read the file at
+# that path, validate it, and emit failure messages to stdout (so Claude
+# Code's hook transcript captures them).
+# ---------------------------------------------------------------------------
+
 mkdir -p .claude/agentic/intents .claude/agentic/specs
+
 cat > .claude/agentic/intents/2026-05-20-test.md <<'INTENT'
 ---
 id: 2026-05-20-test
@@ -52,13 +114,13 @@ created_at: "2026-05-20T15:30:00Z"
 Test intent
 INTENT
 
-SPEC=.claude/agentic/specs/2026-05-20-test.md
-cat > "$SPEC" <<'SPEC_DRAFT'
+SPEC_BAD=.claude/agentic/specs/2026-05-20-test-bad.md
+cat > "$SPEC_BAD" <<'SPEC_BAD_EOF'
 ---
-id: 2026-05-20-test
+id: 2026-05-20-test-bad
 schema_version: "0.1"
 intent_path: .claude/agentic/intents/2026-05-20-test.md
-approved: false
+approved: true
 created_at: "2026-05-20T15:30:00Z"
 ---
 
@@ -73,192 +135,134 @@ Test.
 - Wall clock: 90 minutes
 - Diff lines: 800
 - Files touched: 25
-SPEC_DRAFT
+SPEC_BAD_EOF
 
-# Extract hook-event content from a Claude Code stream-json output file.
-# Returns: prints "HOOK_EVENT_COUNT=<n>" on first line, then the
-# concatenated hook stdout strings (one per event) on subsequent lines.
-# Exits non-zero if the file is empty or contains no JSON events at all.
-extract_hook_output() {
-  local stream_file="$1"
-  if [[ ! -s "$stream_file" ]]; then
-    echo "EXTRACT_ERROR: stream file is empty: $stream_file" >&2
-    return 1
-  fi
-  python3 - "$stream_file" <<'PY'
+# Construct the hook input JSON: simulates Claude Code's PostToolUse payload
+SPEC_BAD_ABS="$TMP_PROJECT/$SPEC_BAD"
+HOOK_INPUT_BAD="$(python3 -c '
 import json, sys
-path = sys.argv[1]
-hook_events = []
-any_json = False
-with open(path, "r") as f:
-    for line in f:
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            d = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        any_json = True
-        t = d.get("type", "")
-        if t == "hook_response" or t == "hook_event":
-            # Different Claude Code versions use slightly different event
-            # names; capture both. Hook stdout typically lives at
-            # d["hook_response"]["output"] OR d["output"] OR d["stdout"].
-            out = ""
-            if isinstance(d.get("hook_response"), dict):
-                out = d["hook_response"].get("output", "") or d["hook_response"].get("stdout", "")
-            if not out:
-                out = d.get("output", "") or d.get("stdout", "")
-            if out:
-                hook_events.append(out)
-if not any_json:
-    print("EXTRACT_ERROR: no JSON events found in stream", file=sys.stderr)
-    sys.exit(2)
-print(f"HOOK_EVENT_COUNT={len(hook_events)}")
-for ev in hook_events:
-    print(ev)
-PY
-}
+payload = {"tool_input": {"file_path": sys.argv[1]}}
+print(json.dumps(payload))
+' "$SPEC_BAD_ABS")"
 
-# Verify the Edit (or Write) tool was invoked in the stream.
-verify_edit_used() {
-  local stream_file="$1"
-  local found
-  found=$(python3 - "$stream_file" <<'PY'
+# Invoke the validator in hook mode (stdin = JSON, no CLI arg).
+# `set +e` before the call because the validator is EXPECTED to exit 1
+# here (approved=true with unresolved QUESTION), and `set -euo pipefail`
+# would otherwise kill the script.
+hook_out_bad="$TMP_PROJECT/_hook_out_bad.txt"
+set +e
+echo "$HOOK_INPUT_BAD" | "$VALIDATOR" >"$hook_out_bad" 2>&1
+hook_exit_bad=$?
+set -e
+
+if [[ $hook_exit_bad -ne 1 ]]; then
+  echo "FAIL: validator hook-mode on approved+unresolved-QUESTION expected exit 1, got $hook_exit_bad" >&2
+  echo "--- output: ---" >&2
+  cat "$hook_out_bad" >&2
+  exit 1
+fi
+echo "PASS validator hook-mode exits 1 on approved=true with unresolved QUESTION"
+
+if ! grep -qE 'spec validation failed' "$hook_out_bad"; then
+  echo "FAIL: validator hook-mode did not emit 'spec validation failed' on stdout" >&2
+  cat "$hook_out_bad" >&2
+  exit 1
+fi
+echo "PASS validator hook-mode emits 'spec validation failed' on stdout"
+
+if ! grep -qE 'QUESTION-1' "$hook_out_bad"; then
+  echo "FAIL: validator hook-mode did not name the unresolved QUESTION-1 in its output" >&2
+  cat "$hook_out_bad" >&2
+  exit 1
+fi
+echo "PASS validator hook-mode names QUESTION-1 in failure output"
+
+# ---------------------------------------------------------------------------
+# Section 3: Validator hook-mode behavior on a clean approved spec
+# ---------------------------------------------------------------------------
+
+SPEC_GOOD=.claude/agentic/specs/2026-05-20-test-good.md
+cat > "$SPEC_GOOD" <<'SPEC_GOOD_EOF'
+---
+id: 2026-05-20-test-good
+schema_version: "0.1"
+intent_path: .claude/agentic/intents/2026-05-20-test.md
+approved: true
+created_at: "2026-05-20T15:30:00Z"
+---
+
+# Intent
+Test.
+
+# Diff budget
+- Wall clock: 90 minutes
+- Diff lines: 800
+- Files touched: 25
+SPEC_GOOD_EOF
+
+SPEC_GOOD_ABS="$TMP_PROJECT/$SPEC_GOOD"
+HOOK_INPUT_GOOD="$(python3 -c '
 import json, sys
-path = sys.argv[1]
-seen = []
-with open(path, "r") as f:
-    for line in f:
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            d = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        # tool_use events: { type: "tool_use", ... } or {assistant: ...} with content blocks
-        # Capture any string field anywhere that looks like a tool name from Write|Edit family.
-        s = json.dumps(d)
-        for name in ("Edit", "Write", "NotebookEdit"):
-            if f'"name":"{name}"' in s or f'"tool_name":"{name}"' in s:
-                seen.append(name)
-                break
-print(",".join(sorted(set(seen))))
-PY
-  )
-  if [[ -z "$found" ]]; then
-    return 1
-  fi
-  echo "$found"
-}
+payload = {"tool_input": {"file_path": sys.argv[1]}}
+print(json.dumps(payload))
+' "$SPEC_GOOD_ABS")"
 
-# Ask claude -p to Edit the spec file. This should fire PostToolUse on Edit.
-# Use stream-json output with hook events enabled so we can inspect hook stdout.
-stream_out1="$TMP_PROJECT/_stream1.json"
+hook_out_good="$TMP_PROJECT/_hook_out_good.txt"
+set +e
+echo "$HOOK_INPUT_GOOD" | "$VALIDATOR" >"$hook_out_good" 2>&1
+hook_exit_good=$?
+set -e
 
-claude --plugin-dir "$PLUGIN_DIR" \
-  --dangerously-skip-permissions \
-  --output-format=stream-json \
-  --include-hook-events \
-  --verbose \
-  -p "Use the Edit tool to change the approved field in $SPEC from false to true. Then exit." \
-  >"$stream_out1" 2>&1 || true
-
-edit_tools_1="$(verify_edit_used "$stream_out1")" || {
-  echo "FAIL: claude did not invoke Edit/Write tool — no PostToolUse hook could have fired" >&2
-  echo "  This is LLM non-determinism, not a hook bug. Retry the test; if it persists," >&2
-  echo "  the prompt may need to be more explicit." >&2
-  echo "--- stream content head: ---" >&2
-  head -30 "$stream_out1" >&2 || true
-  exit 1
-}
-echo "PASS claude invoked tools: $edit_tools_1"
-
-hook_extract_1="$(extract_hook_output "$stream_out1")" || {
-  echo "FAIL: hook_event extraction failed (stream-json flag may be broken)" >&2
-  echo "--- stream content head: ---" >&2
-  head -20 "$stream_out1" >&2 || true
-  exit 1
-}
-hook_count_1=$(printf '%s\n' "$hook_extract_1" | head -1 | sed 's/^HOOK_EVENT_COUNT=//')
-hook_body_1=$(printf '%s\n' "$hook_extract_1" | tail -n +2)
-
-if [[ "$hook_count_1" -lt 1 ]]; then
-  echo "FAIL: no hook_response events found in stream (hook did not fire)" >&2
-  echo "--- stream content head: ---" >&2
-  head -20 "$stream_out1" >&2 || true
+if [[ $hook_exit_good -ne 0 ]]; then
+  echo "FAIL: validator hook-mode on clean approved spec expected exit 0, got $hook_exit_good" >&2
+  cat "$hook_out_good" >&2
   exit 1
 fi
+echo "PASS validator hook-mode exits 0 on clean approved spec"
 
-# After the edit, the hook should have fired and emitted a validation failure
-# because the spec has approved=true but a QUESTION-1 block remains.
-if ! grep -qE 'spec validation failed' <<< "$hook_body_1"; then
-  echo "FAIL: hook fired but did not produce 'spec validation failed' message" >&2
-  echo "--- hook body: ---" >&2
-  echo "$hook_body_1" >&2
+if ! grep -qE 'state: approved' "$hook_out_good"; then
+  echo "FAIL: validator hook-mode did not emit 'state: approved' on clean approved spec" >&2
+  cat "$hook_out_good" >&2
   exit 1
 fi
-echo "PASS hook fired validation failure on approved=true with unresolved QUESTION ($hook_count_1 hook events)"
+echo "PASS validator hook-mode emits 'state: approved' on clean approved spec"
 
-# Now resolve the question: remove the QUESTION-N comment line (which is what
-# the validator checks) and replace the placeholder with an actual answer.
-# The validator considers a QUESTION "unresolved" if the <!-- QUESTION-N -->
-# HTML comment is still present in the file; filling in the answer alone is
-# not sufficient — the comment block must be removed.
-sed -i.bak '/^<!-- QUESTION-[0-9]/d' "$SPEC"
-sed -i.bak 's/\[REPLACE THIS LINE\]/A/' "$SPEC"
-rm -f "$SPEC.bak"
-
-stream_out2="$TMP_PROJECT/_stream2.json"
-
-claude --plugin-dir "$PLUGIN_DIR" \
-  --dangerously-skip-permissions \
-  --output-format=stream-json \
-  --include-hook-events \
-  --verbose \
-  -p "Use the Edit tool to make any trivial whitespace-only edit to $SPEC (such as adding a trailing newline). Then exit." \
-  >"$stream_out2" 2>&1 || true
-
-edit_tools_2="$(verify_edit_used "$stream_out2")" || {
-  echo "FAIL: claude did not invoke Edit/Write tool — no PostToolUse hook could have fired" >&2
-  echo "  This is LLM non-determinism, not a hook bug. Retry the test; if it persists," >&2
-  echo "  the prompt may need to be more explicit." >&2
-  echo "--- stream content head: ---" >&2
-  head -30 "$stream_out2" >&2 || true
-  exit 1
-}
-echo "PASS claude invoked tools: $edit_tools_2"
-
-hook_extract_2="$(extract_hook_output "$stream_out2")" || {
-  echo "FAIL: hook_event extraction failed (stream-json flag may be broken)" >&2
-  echo "--- stream content head: ---" >&2
-  head -20 "$stream_out2" >&2 || true
-  exit 1
-}
-hook_count_2=$(printf '%s\n' "$hook_extract_2" | head -1 | sed 's/^HOOK_EVENT_COUNT=//')
-hook_body_2=$(printf '%s\n' "$hook_extract_2" | tail -n +2)
-
-if [[ "$hook_count_2" -lt 1 ]]; then
-  echo "FAIL: no hook_response events found in stream (hook did not fire)" >&2
-  echo "--- stream content head: ---" >&2
-  head -20 "$stream_out2" >&2 || true
+if ! grep -qE '_check-approval' "$hook_out_good"; then
+  echo "FAIL: validator hook-mode did not mention /agentic-dev:_check-approval next step" >&2
+  cat "$hook_out_good" >&2
   exit 1
 fi
+echo "PASS validator hook-mode emits _check-approval next-step instruction"
 
-if ! grep -qE 'state: approved' <<< "$hook_body_2"; then
-  echo "FAIL: hook fired but did not emit 'state: approved' on clean approved spec" >&2
-  echo "--- hook body: ---" >&2
-  echo "$hook_body_2" >&2
+# ---------------------------------------------------------------------------
+# Section 4: Validator hook-mode silently skips non-spec paths
+# ---------------------------------------------------------------------------
+
+NONSPEC=.claude/agentic/intents/some-other-file.md
+echo "not a spec" > "$NONSPEC"
+NONSPEC_ABS="$TMP_PROJECT/$NONSPEC"
+HOOK_INPUT_NONSPEC="$(python3 -c '
+import json, sys
+payload = {"tool_input": {"file_path": sys.argv[1]}}
+print(json.dumps(payload))
+' "$NONSPEC_ABS")"
+
+hook_out_nonspec="$TMP_PROJECT/_hook_out_nonspec.txt"
+set +e
+echo "$HOOK_INPUT_NONSPEC" | "$VALIDATOR" >"$hook_out_nonspec" 2>&1
+nonspec_exit=$?
+set -e
+
+if [[ $nonspec_exit -ne 0 ]]; then
+  echo "FAIL: validator hook-mode on non-spec path expected exit 0, got $nonspec_exit" >&2
+  cat "$hook_out_nonspec" >&2
   exit 1
 fi
-if ! grep -qE '_check-approval' <<< "$hook_body_2"; then
-  echo "FAIL: hook fired but did not mention /agentic-dev:_check-approval next step" >&2
-  echo "--- hook body: ---" >&2
-  echo "$hook_body_2" >&2
+if [[ -s "$hook_out_nonspec" ]]; then
+  echo "FAIL: validator hook-mode emitted output on non-spec path (should be silent)" >&2
+  cat "$hook_out_nonspec" >&2
   exit 1
 fi
-echo "PASS hook emits _check-approval next-step on clean approved spec ($hook_count_2 hook events)"
+echo "PASS validator hook-mode silently skips non-spec paths"
 
 echo "hook_test: OK"
