@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Agentic State",
+  "description": "Orchestrator state and circuit breaker for a host project.",
+  "type": "object",
+  "required": ["schema_version", "circuit_breaker", "current_goal", "last_updated"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "0.1"
+    },
+    "circuit_breaker": {
+      "type": "object",
+      "required": ["state"],
+      "additionalProperties": false,
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": ["running", "halted", "completed", "idle"]
+        },
+        "halted_reason": {
+          "type": ["string", "null"]
+        },
+        "halted_at": {
+          "type": ["string", "null"],
+          "format": "date-time"
+        },
+        "halted_goal_id": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "current_goal": {
+      "type": ["string", "null"],
+      "description": "Goal id currently executing, or null if idle/halted"
+    },
+    "last_updated": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

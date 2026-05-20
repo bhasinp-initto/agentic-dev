@@ -1,0 +1,11 @@
+{
+  "schema_version": "0.1",
+  "circuit_breaker": {
+    "state": "idle",
+    "halted_reason": null,
+    "halted_at": null,
+    "halted_goal_id": null
+  },
+  "current_goal": null,
+  "last_updated": "2026-05-20T12:00:00Z"
+}

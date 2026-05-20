@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Agentic Per-Project Config",
+  "description": "Project-specific configuration written by /agentic-dev:init.",
+  "type": "object",
+  "required": ["schema_version", "project", "commands", "budgets", "sensitive_paths"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "string", "const": "0.1" },
+    "project": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "primary_language": { "type": ["string", "null"] }
+      }
+    },
+    "commands": {
+      "type": "object",
+      "required": ["test", "lint"],
+      "additionalProperties": false,
+      "properties": {
+        "test": { "type": "string", "minLength": 1 },
+        "lint": { "type": "string", "minLength": 1 },
+        "typecheck": { "type": ["string", "null"] },
+        "build": { "type": ["string", "null"] }
+      }
+    },
+    "budgets": {
+      "type": "object",
+      "required": ["wall_clock_minutes_per_goal", "diff_lines_per_goal", "files_touched_per_goal"],
+      "additionalProperties": false,
+      "properties": {
+        "wall_clock_minutes_per_goal": { "type": "integer", "minimum": 1 },
+        "diff_lines_per_goal": { "type": "integer", "minimum": 1 },
+        "files_touched_per_goal": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "sensitive_paths": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Glob patterns that trip immediate escalation when touched"
+    },
+    "telegram": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "chat_id": { "type": ["string", "integer"] }
+      }
+    },
+    "push_policy": {
+      "type": "string",
+      "enum": ["hold", "auto"],
+      "default": "hold"
+    }
+  }
+}

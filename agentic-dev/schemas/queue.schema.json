@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Agentic Goal Queue",
+  "description": "Ordered list of goals to be processed by the orchestrator.",
+  "type": "object",
+  "required": ["schema_version", "goals"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "0.1"
+    },
+    "goals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "status"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}-[a-z0-9-]+$",
+            "description": "YYYY-MM-DD-<topic-slug>"
+          },
+          "spec_path": {
+            "type": ["string", "null"]
+          },
+          "intent_path": {
+            "type": ["string", "null"]
+          },
+          "status": {
+            "type": "string",
+            "enum": ["intent_only", "drafted", "approved", "running", "completed", "halted", "abandoned"]
+          },
+          "added_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    }
+  }
+}
