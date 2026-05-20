@@ -72,7 +72,8 @@ YAML
 
 # Note: --dangerously-skip-permissions is required because Claude in headless mode
 # blocks reads of .claude/ paths without it. Safe in the tmp project.
-# stderr is NOT redirected — we want to see errors on failure.
+# stdout AND stderr are captured (2>&1) into $output so grep assertions see the
+# full output and the on-failure dump (status_output.txt) shows error messages.
 output=$(claude --plugin-dir "$PLUGIN_DIR" --dangerously-skip-permissions -p "/agentic-dev:status" 2>&1 || true)
 echo "$output" > status_output.txt
 
@@ -86,8 +87,8 @@ must_contain() {
   fi
 }
 
-must_contain "circuit.?breaker.*running"
-must_contain "current.?goal.*2026-05-20-example-goal"
+must_contain "circuit.*breaker.*running"
+must_contain "current.*goal.*2026-05-20-example-goal"
 must_contain "approved.*1"
 must_contain "intent_only.*1"
 must_contain "running.*1"

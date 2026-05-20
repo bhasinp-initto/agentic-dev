@@ -8,7 +8,16 @@ You are reporting the state of the agentic-dev system in the current host projec
 
 ## Steps
 
-1. Use the Read tool to read `.claude/agentic/state.json`. If the file does not exist, print a single line: `agentic-dev: not initialized (run /agentic-dev:init)` and exit.
+1. Use the Read tool to check all three required state files:
+   - `.claude/agentic/state.json`
+   - `.claude/agentic/queue.yaml`
+   - `.claude/agentic/config.yaml`
+
+   - If ALL three are missing: print `agentic-dev: not initialized (run /agentic-dev:init)` and exit.
+   - If `state.json` is missing but the others exist: print `agentic-dev: not initialized (run /agentic-dev:init)` and exit. (state.json is the authoritative initialization marker.)
+   - If `state.json` exists but `queue.yaml` and/or `config.yaml` are missing: print `agentic-dev: warning — partial initialization detected (run /agentic-dev:init to repair)` followed by a list of which files are missing. Then continue to produce a partial report — read whichever files do exist, show their data, and clearly mark the missing-file sections (e.g., `  queue:             (file missing)` or `  project:           (config.yaml missing)`).
+
+   The point: never silently fall back to defaults. Always make missing-file state visible to the user.
 
 2. Use the Read tool to read `.claude/agentic/queue.yaml`.
 
@@ -37,6 +46,10 @@ agentic-dev: status
     completed:       <count>
     halted:          <count>
     abandoned:       <count>
+
+(Only print the status lines whose count > 0. Skip any status with count = 0. If
+all counts are zero, print `    (queue is empty)` as a single line under `queue:`
+instead of any individual status lines. See Step 6 for full empty-queue handling.)
 
   test command:      <config.commands.test>
   lint command:      <config.commands.lint>
