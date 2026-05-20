@@ -19,14 +19,14 @@ echo "console.log('hello')" > index.js
 git add -A
 git -c user.email=test@test -c user.name=test commit -q -m "initial"
 
-# Invoke the init skill with a pre-canned config path as $ARGUMENTS.
-# --dangerously-skip-permissions: required because .claude/ is a protected path in headless mode.
-# This test runs in a throwaway temp directory created above — no real project is at risk.
-# --add-dir grants read access to the fixture directory (outside CWD).
+# Note: do NOT redirect stderr — we want to see claude's error output if anything
+# goes wrong (manifest parse error, missing key, etc.). The || true is intentional
+# because `claude -p` may exit non-zero for legitimate reasons (timeout, partial
+# completion); subsequent require() assertions detect actual failures.
 claude --plugin-dir "$PLUGIN_DIR" \
   --dangerously-skip-permissions \
   --add-dir "$(dirname "$FIXTURE_INPUT")" \
-  -p "/agentic-dev:init $FIXTURE_INPUT" >/dev/null 2>&1 || true
+  -p "/agentic-dev:init $FIXTURE_INPUT" >/dev/null || true
 
 # Assertions
 ok=1
@@ -52,6 +52,16 @@ require .claude/agentic/diffs
 require .claude/agentic/artifacts
 require .claude/agentic/escalations
 require .claude/agentic/prompts
+
+require .claude/agentic/intents/.gitkeep
+require .claude/agentic/specs/.gitkeep
+require .claude/agentic/manifests/.gitkeep
+require .claude/agentic/diffs/.gitkeep
+require .claude/agentic/artifacts/.gitkeep
+require .claude/agentic/escalations/.gitkeep
+require .claude/agentic/prompts/.gitkeep
+
+[[ $ok -eq 1 ]] || exit 1
 
 # Validate the written config against the schema
 python3 - <<PY
@@ -89,22 +99,34 @@ jsonschema.validate(instance=data, schema=schema, format_checker=jsonschema.Form
 print("PASS queue.yaml validates against queue.schema.json")
 PY
 
-[[ $ok -eq 1 ]] || exit 1
-
 # --- Idempotence check ---
-# Re-running init must not overwrite or duplicate files.
-state_mtime_before=$(stat -f "%m" .claude/agentic/state.json 2>/dev/null || stat -c "%Y" .claude/agentic/state.json)
-sleep 1
-claude --plugin-dir "$PLUGIN_DIR" \
-  --dangerously-skip-permissions \
-  --add-dir "$(dirname "$FIXTURE_INPUT")" \
-  -p "/agentic-dev:init $FIXTURE_INPUT" >/dev/null 2>&1 || true
-state_mtime_after=$(stat -f "%m" .claude/agentic/state.json 2>/dev/null || stat -c "%Y" .claude/agentic/state.json)
+# Re-running init must not overwrite or duplicate the load-bearing files.
+mtime() {
+  stat -f "%m" "$1" 2>/dev/null || stat -c "%Y" "$1"
+}
 
-if [[ "$state_mtime_before" != "$state_mtime_after" ]]; then
-  echo "FAIL idempotence: state.json was modified on re-run" >&2
-  exit 1
-fi
-echo "PASS idempotence: state.json untouched on re-run"
+state_before=$(mtime .claude/agentic/state.json)
+config_before=$(mtime .claude/agentic/config.yaml)
+queue_before=$(mtime .claude/agentic/queue.yaml)
+sleep 1
+
+# Re-run claude with the same flags as the first invocation (see header comments).
+claude \
+  --plugin-dir "$PLUGIN_DIR" \
+  --add-dir "$(dirname "$FIXTURE_INPUT")" \
+  --dangerously-skip-permissions \
+  -p "/agentic-dev:init $FIXTURE_INPUT" >/dev/null || true
+
+state_after=$(mtime .claude/agentic/state.json)
+config_after=$(mtime .claude/agentic/config.yaml)
+queue_after=$(mtime .claude/agentic/queue.yaml)
+
+idempotent_ok=1
+[[ "$state_before"  == "$state_after"  ]] || { echo "FAIL idempotence: state.json was modified on re-run" >&2; idempotent_ok=0; }
+[[ "$config_before" == "$config_after" ]] || { echo "FAIL idempotence: config.yaml was modified on re-run" >&2; idempotent_ok=0; }
+[[ "$queue_before"  == "$queue_after"  ]] || { echo "FAIL idempotence: queue.yaml was modified on re-run" >&2; idempotent_ok=0; }
+
+[[ $idempotent_ok -eq 1 ]] || exit 1
+echo "PASS idempotence: state.json, config.yaml, queue.yaml all untouched on re-run"
 
 echo "init_test: OK"

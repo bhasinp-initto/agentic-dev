@@ -15,12 +15,11 @@ You are bootstrapping the current working directory as a host project for the ag
 
 The YAML mode is for testing and scripted onboarding; the interactive mode is for normal human use.
 
-**CRITICAL for YAML mode:** When `$ARGUMENTS` contains a file path (i.e., it is non-empty and looks like a path ending in `.yaml` or `.yml`), you MUST:
-1. Use the Read tool to read the exact file at that path
-2. Parse the YAML content
-3. Use every value from the file exactly as written — no substitutions, no defaults, no invented values
-4. Do NOT prompt the user for any values
-5. Do NOT ask any questions — proceed directly to creating all files
+**CRITICAL for YAML mode:** If `$ARGUMENTS` is non-empty, treat it as a path to a YAML config file. Use the Read tool to load it. If the file does not exist or is not valid YAML, report a clear error and exit without creating any files. Otherwise, you MUST:
+1. Parse the YAML content
+2. Use every value from the file exactly as written — no substitutions, no defaults, no invented values
+3. Do NOT prompt the user for any values
+4. Do NOT ask any questions — proceed directly to creating all files
 
 ## Idempotence
 
@@ -85,11 +84,11 @@ goals: []
 
 ### `config.yaml`
 
-Write the configuration values gathered from either the YAML input file or the interactive prompts. Schema is defined in `agentic-dev/schemas/config.schema.json`.
+Write the configuration values gathered from either the YAML input file or the interactive prompts. Schema reference: `agentic-dev/schemas/config.schema.json` (defined in the plugin source — do NOT attempt to read it at runtime from the host project's working directory). Just verify the file you're producing is well-formed YAML and contains the required keys listed below.
 
 Required fields and their derivations:
 
-- `schema_version`: `"0.1"` (literal)
+- `schema_version`: ALWAYS `"0.1"` (literal constant). This is always written to config.yaml even in YAML mode — it is the schema version of the file you're producing, not a user-supplied value. If the YAML input includes `schema_version`, it must equal `"0.1"`; reject anything else.
 - `project.name`: from input or prompt; default to basename of current working directory
 - `project.primary_language`: from input or prompt; ask "What is the primary language of this project? (e.g., python, typescript, go, rust)"; may be null
 - `commands.test`: from input or prompt; ask "What command runs the test suite? (e.g., `npm test`, `pytest -q`, `go test ./...`)"; required, non-empty
