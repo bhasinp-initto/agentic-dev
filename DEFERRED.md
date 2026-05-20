@@ -67,6 +67,28 @@ This file is the single source of truth for tech debt across phases. Add to it w
 
 ---
 
+## From Phase 2 → future polish
+
+### P2-DEF-001 — Drafter response parsing should tolerate leading whitespace
+
+**Source:** T2 code review.
+**What:** `skills/intent/SKILL.md` checks if drafter output begins with `---` literally. A leading newline or whitespace causes a false rejection even though the drafter's output contract forbids such output. Low probability but worth `.lstrip()` in the parsing logic.
+**Target:** v0.2.x polish.
+
+### P2-DEF-002 — Drafter dispatch prompt format inconsistency
+
+**Source:** T2 code review.
+**What:** `agents/spec-drafter.md` says `config_defaults` is "JSON"; `skills/intent/SKILL.md` sends it as YAML-style bullet list. Both parse via LLM, but the documentation mismatch makes the contract unclear. Pick one format and align.
+**Target:** v0.2.x polish.
+
+### P2-DEF-003 — `must_exist()` is dead code in intent_fresh_test.sh
+
+**Source:** T2 code review.
+**What:** Defined at lines 43–50, never invoked. Use it for the file-existence checks or delete it.
+**Target:** v0.2.x polish.
+
+---
+
 ## How to use this file
 
 - New items: add a section under the appropriate "From Phase N" heading. Include source review, what, and target phase.

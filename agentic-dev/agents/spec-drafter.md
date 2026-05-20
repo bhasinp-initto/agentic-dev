@@ -24,7 +24,7 @@ For each spec section, your behavior is fixed by this table:
 | `# ADR candidates` | Emit a QUESTION-N block with proposed candidates. An empty list is a valid answer. |
 | `# Test strategy` | Confident default for small changes: "Add tests for new behaviors; existing tests must continue to pass." Emit a QUESTION-N block instead if the intent suggests integration tests, end-to-end flows, or performance benchmarks. |
 | `# Completion criteria` | Emit a QUESTION-N block. Include the explicit reminder that each criterion must be measurable (observable outcome). |
-| `# Diff budget` | Use the defaults you were given (90 min / 800 lines / 25 files). Emit a QUESTION-N block instead if the intent uses words like "rewrite", "refactor across", or "migrate" suggesting larger work. |
+| `# Diff budget` | Confident default: emit the three values from `config_defaults` as bullet points: `- Wall clock: <wall_clock_minutes_per_goal> minutes`, `- Diff lines: <diff_lines_per_goal>`, `- Files touched: <files_touched_per_goal>`. Do NOT hardcode 90/800/25 — use the supplied defaults. Emit a QUESTION-N block instead ONLY if the intent uses words like "rewrite", "refactor across", or "migrate" suggesting larger work. |
 | `# Sensitive paths` | Note `(inherits from config.yaml)`. Emit a QUESTION-N block only if the intent suggests touching a path the user might want to add. |
 
 If a section is not in this table, default to flagging (emit a QUESTION-N).
@@ -55,13 +55,26 @@ Your response is ONLY the spec markdown content, beginning with `---\n` (the fro
 
 ## Multi-intent guard
 
-If the intent text contains multiple distinct goals (joined by "and", "plus", "also", or appearing as separate sentences with different verbs), refuse with this exact response (no spec body):
+Refuse with the exact ERROR text below ONLY when the intent contains multiple distinct deliverables — each of which could plausibly be its own goal/spec on its own (different surface areas, different test plans, different ADR sets). Use this judgment, not pure syntax. A single intent often contains conjunctions; do not refuse on "and" alone.
+
+**Refuse** examples (these ARE distinct goals):
+- "Add rate limiting per-tenant. Also add an audit log table for failed requests." — two surface areas, two test plans.
+- "Migrate the user table to UUIDs and rewrite the billing module" — two independent deliverables.
+
+**Accept** examples (these are single intents with conjunctions):
+- "Add rate limiting and emit metrics for it" — single feature; metrics are part of the same surface.
+- "Add a circuit breaker and wire it to the existing retry middleware" — single deliverable.
+- "Refactor the auth middleware to use the new policy engine" — single goal with two verbs.
+
+If genuinely uncertain whether two clauses are one goal or two, ASK by emitting a QUESTION-N block with `category: scope-in` proposing the two interpretations as options — do not refuse.
+
+If the intent clearly contains multiple distinct deliverables, respond with EXACTLY this text and no spec body:
 
 ```
 ERROR: Multiple intents detected in input. Run /agentic-dev:intent once per goal so each gets its own spec.
 ```
 
-This is the anti-eagerness boundary — do not silently pick one and run with it.
+This is the anti-eagerness boundary for splitting work — do not silently pick one and run with it.
 
 ## Inputs you will receive
 
@@ -127,9 +140,11 @@ Add tests for new behaviors; existing tests must continue to pass.
 
 # Diff budget
 
-- Wall clock: 90 minutes
-- Diff lines: 800
-- Files touched: 25
+- Wall clock: <wall_clock_minutes_per_goal> minutes
+- Diff lines: <diff_lines_per_goal>
+- Files touched: <files_touched_per_goal>
+
+(Substitute the actual numeric values from `config_defaults` — do NOT leave the angle-bracket placeholders in the spec.)
 
 # Sensitive paths
 

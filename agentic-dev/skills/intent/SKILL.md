@@ -21,6 +21,11 @@ Before doing anything else:
 ## Generate the intent id
 
 1. Derive a kebab-case slug from the first 5–8 meaningful words of `$ARGUMENTS`. Strip stop words ("the", "a", "an", "to", "for", "of", "in", "on", "and", "or", "but"). Lowercase. Replace non-alphanumerics with hyphens. Collapse repeated hyphens. Trim leading/trailing hyphens.
+
+1a. If the derived slug is empty (e.g., the input was all stop words, or all punctuation), refuse: print `agentic-dev: cannot derive a meaningful slug from input. Please rephrase the goal with at least 1–2 content words. Got: "<$ARGUMENTS>"` and exit. Do NOT continue.
+
+1b. If the slug exceeds 60 characters, truncate at the last hyphen that keeps it ≤60 characters, preserving meaningful word boundaries.
+
 2. Get today's date in UTC: use `date -u +"%Y-%m-%d"` via the Bash tool.
 3. Construct `intent_id` = `<YYYY-MM-DD>-<slug>`.
 4. Construct `created_at` = current UTC timestamp in `YYYY-MM-DDTHH:MM:SSZ` format: `date -u +"%Y-%m-%dT%H:%M:%SZ"`.
@@ -70,11 +75,15 @@ repo_overview:
 Output the complete spec markdown per your calibration table and output contract. Begin with the frontmatter opener `---`.
 ```
 
+**Substitute all `<…>` placeholders with the actual computed values before dispatching.** The drafter must see real values (e.g., `intent_id: 2026-05-20-add-rate-limiting`), not literal placeholder text.
+
 ## Capture the drafter's output
 
 The Agent tool returns the drafter's response. The response should begin with `---` (the frontmatter opener). If it doesn't, or if the response starts with `ERROR:`, do NOT write a spec file. Instead:
 - Print the drafter's response to the user.
-- Print: `agentic-dev: drafter did not return a valid spec. Intent file preserved at .claude/agentic/intents/<intent_id>.md.`
+- Print: `agentic-dev: drafter did not return a valid spec.`
+- Print: `  intent file preserved at: .claude/agentic/intents/<intent_id>.md`
+- Print: `  To retry the draft, delete the intent file and re-run /agentic-dev:intent, or wait for /agentic-dev:intent --refine in v0.2.x.`
 - Exit.
 
 ## Write the spec file

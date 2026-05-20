@@ -96,6 +96,16 @@ if [[ "$question_count" -lt 1 ]]; then
 fi
 echo "PASS spec has $question_count QUESTION-N block(s)"
 
+# QUESTION-N blocks must be well-formed: each QUESTION marker should be
+# followed by **Your answer:** somewhere within ~20 lines.
+your_answer_count=$(grep -cE '^\*\*Your answer:\*\*' "$SPEC_FILE" || echo "0")
+if [[ "$your_answer_count" -lt "$question_count" ]]; then
+  echo "FAIL: spec has $question_count QUESTION-N markers but only $your_answer_count **Your answer:** lines (every QUESTION must have an answer placeholder)" >&2
+  cat "$SPEC_FILE" >&2
+  exit 1
+fi
+echo "PASS each QUESTION-N has a matching **Your answer:** placeholder ($your_answer_count placeholders)"
+
 # The required sections should all be present
 for section in "# Intent" "# Scope — In" "# Scope — Out" "# Files in scope" "# Architectural decisions" "# ADR candidates" "# Test strategy" "# Completion criteria" "# Diff budget"; do
   if ! grep -qF "$section" "$SPEC_FILE"; then
@@ -113,5 +123,23 @@ if ! grep -qF "Add rate limiting per-tenant to the API" "$INTENT_FILE"; then
   exit 1
 fi
 echo "PASS intent file contains original text"
+
+# --- Idempotency check ---
+# Re-running with the same intent text must NOT re-draft. The skill should
+# detect the existing intent file and print the existing path.
+idempotency_out="$TMP_PROJECT/_idempotency_output.txt"
+spec_mtime_before=$(stat -f "%m" "$SPEC_FILE" 2>/dev/null || stat -c "%Y" "$SPEC_FILE")
+sleep 1
+claude --plugin-dir "$PLUGIN_DIR" \
+  --dangerously-skip-permissions \
+  -p "/agentic-dev:intent Add rate limiting per-tenant to the API" >"$idempotency_out" 2>&1 || true
+spec_mtime_after=$(stat -f "%m" "$SPEC_FILE" 2>/dev/null || stat -c "%Y" "$SPEC_FILE")
+
+if [[ "$spec_mtime_before" != "$spec_mtime_after" ]]; then
+  echo "FAIL idempotency: spec file was re-written on duplicate /agentic-dev:intent invocation" >&2
+  cat "$idempotency_out" >&2
+  exit 1
+fi
+echo "PASS idempotency: spec file untouched on duplicate invocation"
 
 echo "intent_fresh_test: OK"
