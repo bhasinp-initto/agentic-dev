@@ -86,6 +86,51 @@ def main():
             print("PASS spec-schema-negative-date")
             results.append(True)
 
+        # Negative case: approved as string instead of boolean
+        bad_approved_type = dict(good)
+        bad_approved_type["approved"] = "true"
+        try:
+            jsonschema.validate(
+                instance=bad_approved_type,
+                schema=schema,
+                format_checker=jsonschema.FormatChecker(),
+            )
+            print("FAIL spec-schema-negative-approved-type: string approved wrongly validated")
+            results.append(False)
+        except jsonschema.ValidationError:
+            print("PASS spec-schema-negative-approved-type")
+            results.append(True)
+
+        # Negative case: additionalProperties violation
+        with_extra = dict(good)
+        with_extra["unexpected_field"] = "value"
+        try:
+            jsonschema.validate(
+                instance=with_extra,
+                schema=schema,
+                format_checker=jsonschema.FormatChecker(),
+            )
+            print("FAIL spec-schema-negative-extra-field: extra field wrongly validated")
+            results.append(False)
+        except jsonschema.ValidationError:
+            print("PASS spec-schema-negative-extra-field")
+            results.append(True)
+
+        # Negative case: created_at without timezone
+        no_tz = dict(good)
+        no_tz["created_at"] = "2026-05-20T15:30:00"
+        try:
+            jsonschema.validate(
+                instance=no_tz,
+                schema=schema,
+                format_checker=jsonschema.FormatChecker(),
+            )
+            print("FAIL spec-schema-negative-no-tz: naive datetime wrongly validated")
+            results.append(False)
+        except jsonschema.ValidationError:
+            print("PASS spec-schema-negative-no-tz")
+            results.append(True)
+
     sys.exit(0 if all(results) else 1)
 
 

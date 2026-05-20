@@ -116,6 +116,45 @@ APPROVED_BAD_BUDGET = textwrap.dedent("""\
     - Files touched: 25
 """)
 
+SPEC_BAD_INTENT_PATH = textwrap.dedent("""\
+    ---
+    id: 2026-05-20-x
+    schema_version: "0.1"
+    intent_path: nonexistent/path-that-does-not-resolve.md
+    approved: false
+    created_at: "2026-05-20T15:30:00Z"
+    ---
+
+    # Intent
+    Test.
+
+    # Diff budget
+    - Wall clock: 90 minutes
+    - Diff lines: 800
+    - Files touched: 25
+""")
+
+APPROVED_WITH_REPLACE_ONLY = textwrap.dedent("""\
+    ---
+    id: 2026-05-20-x
+    schema_version: "0.1"
+    intent_path: .claude/agentic/intents/2026-05-20-x.md
+    approved: true
+    created_at: "2026-05-20T15:30:00Z"
+    ---
+
+    # Intent
+    Test.
+
+    # Files in scope
+    The list of files is [REPLACE THIS LINE with paths].
+
+    # Diff budget
+    - Wall clock: 90 minutes
+    - Diff lines: 800
+    - Files touched: 25
+""")
+
 
 def main():
     results = []
@@ -151,6 +190,14 @@ def main():
     code, out = run_validator(APPROVED_BAD_BUDGET)
     check("bad-budget exits 1", lambda: code == 1)
     check("bad-budget mentions budget", lambda: "budget" in out.lower())
+
+    code, out = run_validator(SPEC_BAD_INTENT_PATH)
+    check("bad-intent-path exits 1", lambda: code == 1)
+    check("bad-intent-path mentions intent_path", lambda: "intent_path" in out)
+
+    code, out = run_validator(APPROVED_WITH_REPLACE_ONLY)
+    check("approved-with-replace-only exits 1", lambda: code == 1)
+    check("approved-with-replace-only mentions placeholder", lambda: "REPLACE THIS LINE" in out or "placeholder" in out.lower())
 
     sys.exit(0 if all(results) else 1)
 

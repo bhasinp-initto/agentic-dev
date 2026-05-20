@@ -110,9 +110,12 @@ if not re.match(r"^\d{4}-\d{2}-\d{2}-[a-z0-9-]+$", str(fm["id"])):
     sys.exit(0)
 
 try:
-    datetime.fromisoformat(str(fm["created_at"]).replace("Z", "+00:00"))
+    dt = datetime.fromisoformat(str(fm["created_at"]).replace("Z", "+00:00"))
 except ValueError:
     print(f"PARSE_ERROR: created_at not a valid date-time, got {fm['created_at']!r}")
+    sys.exit(0)
+if dt.tzinfo is None:
+    print(f"PARSE_ERROR: created_at must include timezone offset (e.g., 'Z' or '+00:00'), got {fm['created_at']!r}")
     sys.exit(0)
 
 # Resolve intent_path relative to current working directory
