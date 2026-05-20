@@ -1,0 +1,34 @@
+# macOS
+.DS_Store
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*~
+
+# Local env files — must NEVER be committed
+.env
+.env.*
+*.env
+!schemas/*.env.schema.yaml
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+
+# Node
+node_modules/
+
+# Ruflo / RuVector local DB
+ruvector.db
+
+# Plugin-local test artifacts
+tests/**/.tmp/
+tests/**/tmp/
+
+# Claude Code session artifacts that should stay local
+.claude/sessions/
