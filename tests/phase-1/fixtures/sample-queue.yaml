@@ -1,2 +1,12 @@
 schema_version: "0.1"
-goals: []
+goals:
+  - id: 2026-05-20-example-goal
+    spec_path: .claude/agentic/specs/2026-05-20-example-goal.md
+    intent_path: null
+    status: approved
+    added_at: "2026-05-20T15:25:00Z"
+  - id: 2026-05-20-intent-only-example
+    spec_path: null
+    intent_path: .claude/agentic/intents/2026-05-20-intent-only-example.md
+    status: intent_only
+    added_at: "2026-05-20T15:26:00Z"

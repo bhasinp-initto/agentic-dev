@@ -35,7 +35,11 @@ def validate(name: str, schema_path: Path, fixture_path: Path, loader) -> bool:
     schema = load_json(schema_path)
     data = loader(fixture_path)
     try:
-        jsonschema.validate(instance=data, schema=schema)
+        jsonschema.validate(
+            instance=data,
+            schema=schema,
+            format_checker=jsonschema.FormatChecker(),
+        )
     except jsonschema.ValidationError as e:
         print(f"FAIL {name}: {e.message}")
         return False
@@ -73,11 +77,38 @@ def main():
     }
     schema = load_json(SCHEMA_DIR / "state.schema.json")
     try:
-        jsonschema.validate(instance=bad_state, schema=schema)
+        jsonschema.validate(
+            instance=bad_state,
+            schema=schema,
+            format_checker=jsonschema.FormatChecker(),
+        )
         print("FAIL negative-state: bad fixture wrongly validated")
         results.append(False)
     except jsonschema.ValidationError:
         print("PASS negative-state")
+        results.append(True)
+
+    halted_missing_fields = {
+        "schema_version": "0.1",
+        "circuit_breaker": {
+            "state": "halted",
+            "halted_reason": None,
+            "halted_at": None,
+            "halted_goal_id": None,
+        },
+        "current_goal": None,
+        "last_updated": "2026-05-20T12:00:00Z",
+    }
+    try:
+        jsonschema.validate(
+            instance=halted_missing_fields,
+            schema=schema,
+            format_checker=jsonschema.FormatChecker(),
+        )
+        print("FAIL negative-halted: halted state with null fields wrongly validated")
+        results.append(False)
+    except jsonschema.ValidationError:
+        print("PASS negative-halted")
         results.append(True)
 
     sys.exit(0 if all(results) else 1)

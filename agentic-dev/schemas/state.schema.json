@@ -19,16 +19,21 @@
           "type": "string",
           "enum": ["running", "halted", "completed", "idle"]
         },
-        "halted_reason": {
-          "type": ["string", "null"]
+        "halted_reason": { "type": ["string", "null"] },
+        "halted_at": { "type": ["string", "null"], "format": "date-time" },
+        "halted_goal_id": { "type": ["string", "null"] }
+      },
+      "if": {
+        "properties": { "state": { "const": "halted" } },
+        "required": ["state"]
+      },
+      "then": {
+        "properties": {
+          "halted_reason": { "type": "string", "minLength": 1 },
+          "halted_at": { "type": "string", "format": "date-time" },
+          "halted_goal_id": { "type": "string", "minLength": 1 }
         },
-        "halted_at": {
-          "type": ["string", "null"],
-          "format": "date-time"
-        },
-        "halted_goal_id": {
-          "type": ["string", "null"]
-        }
+        "required": ["halted_reason", "halted_at", "halted_goal_id"]
       }
     },
     "current_goal": {

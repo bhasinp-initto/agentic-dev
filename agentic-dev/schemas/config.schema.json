@@ -3,7 +3,7 @@
   "title": "Agentic Per-Project Config",
   "description": "Project-specific configuration written by /agentic-dev:init.",
   "type": "object",
-  "required": ["schema_version", "project", "commands", "budgets", "sensitive_paths"],
+  "required": ["schema_version", "project", "commands", "budgets", "sensitive_paths", "push_policy"],
   "additionalProperties": false,
   "properties": {
     "schema_version": { "type": "string", "const": "0.1" },
