@@ -1,0 +1,5 @@
+id: 2026-05-20-add-rate-limiting-per-tenant
+schema_version: "0.1"
+intent_path: .claude/agentic/intents/2026-05-20-add-rate-limiting-per-tenant.md
+approved: false
+created_at: "2026-05-20T15:30:00Z"
