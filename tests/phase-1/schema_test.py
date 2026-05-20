@@ -6,8 +6,14 @@ from pathlib import Path
 try:
     import yaml
     import jsonschema
-except ImportError:
-    print("ERROR: install dependencies first: pip install pyyaml jsonschema", file=sys.stderr)
+    # Required for format_checker to actually enforce date-time:
+    import rfc3339_validator  # noqa: F401
+except ImportError as e:
+    print(
+        f"ERROR: missing dependency ({e.name}). Install with: "
+        "pip install -r tests/requirements.txt",
+        file=sys.stderr,
+    )
     sys.exit(2)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]

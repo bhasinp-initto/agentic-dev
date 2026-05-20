@@ -1,0 +1,4 @@
+# Test dependencies for the agentic-dev plugin's Phase 1+ test suite.
+# Install with: pip install -r tests/requirements.txt
+pyyaml>=6.0
+jsonschema[format-nongpl]>=4.18
