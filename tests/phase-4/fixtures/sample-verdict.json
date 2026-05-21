@@ -1,0 +1,12 @@
+{
+  "schema_version": "0.1",
+  "goal_id": "2026-05-21-test-goal",
+  "manifest_path": ".claude/agentic/manifests/2026-05-21-test-goal.json",
+  "checked_at": "2026-05-21T11:00:00Z",
+  "gates": [
+    { "name": "scope-check", "result": "pass", "severity": "blocking", "details": "all 3 touched files in scope" }
+  ],
+  "overall": "pass",
+  "blocking_failures": [],
+  "warnings": []
+}

@@ -1,0 +1,16 @@
+{
+  "goal_id": "2026-05-21-test-goal",
+  "spec_path": "/tmp/spec.md",
+  "baseline_ref": "abc1234",
+  "budget": {
+    "wall_clock_minutes_per_goal": 30,
+    "diff_lines_per_goal": 100,
+    "files_touched_per_goal": 5
+  },
+  "sensitive_paths": ["auth/**", "migrations/**"],
+  "project_commands": { "test": "echo passed", "lint": "echo lint-clean", "typecheck": null, "build": null },
+  "worktree_path": "/tmp/worktree",
+  "baseline": {
+    "test_counts": { "passed": 10, "failed": 0, "skipped": 0 }
+  }
+}

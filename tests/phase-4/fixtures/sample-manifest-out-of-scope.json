@@ -1,0 +1,23 @@
+{
+  "schema_version": "0.1",
+  "goal_id": "2026-05-21-test-goal",
+  "spec_path": ".claude/agentic/specs/2026-05-21-test-goal.md",
+  "worktree_path": "/tmp/worktree",
+  "baseline_ref": "abc1234",
+  "head_ref": "def5678",
+  "status": "complete",
+  "started_at": "2026-05-21T10:05:00Z",
+  "completed_at": "2026-05-21T10:20:00Z",
+  "diff_stats": { "files_touched": 4, "lines_added": 52, "lines_removed": 5 },
+  "tests": { "ran": 15, "passed": 15, "failed": 0, "skipped": 0, "logs_path": "/tmp/worktree/test-output.log" },
+  "self_check": { "lint": "clean", "typecheck": "n/a" },
+  "scope_check": { "in_spec_files": ["src/health.ts", "src/utils.ts", "tests/health.test.ts"], "out_of_spec_files": ["src/secrets/leaked.ts"] },
+  "adrs_filed": [],
+  "spec_change_requests": [],
+  "deferrals": [],
+  "clarifying_questions_asked": [],
+  "artifacts": [],
+  "commits": [
+    { "sha": "def5678", "subject": "[2026-05-21-test-goal] add health endpoint (with accidental leak)" }
+  ]
+}

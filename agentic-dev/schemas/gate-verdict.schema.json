@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Gate Verdict",
+  "description": "Per-goal verdict produced by run-gates.sh after running all deterministic gate scripts.",
+  "type": "object",
+  "required": ["schema_version", "goal_id", "manifest_path", "checked_at", "gates", "overall", "blocking_failures", "warnings"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "0.1"
+    },
+    "goal_id": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}-[a-z0-9-]+$",
+      "description": "YYYY-MM-DD-<topic-slug>"
+    },
+    "manifest_path": {
+      "type": "string",
+      "description": "Path to the manifest file that was checked."
+    },
+    "checked_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when the gates were run."
+    },
+    "gates": {
+      "type": "array",
+      "description": "Results from each individual gate script.",
+      "items": {
+        "type": "object",
+        "required": ["name", "result", "severity", "details"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Gate identifier (e.g. scope-check, budget-check)."
+          },
+          "result": {
+            "type": "string",
+            "enum": ["pass", "fail", "inconclusive"],
+            "description": "Outcome of the gate."
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["blocking", "warning"],
+            "description": "Whether a failure from this gate blocks the verdict."
+          },
+          "details": {
+            "type": "string",
+            "description": "Human-readable summary of the gate outcome."
+          },
+          "raw": {
+            "type": "object",
+            "description": "Gate-specific structured payload. Optional.",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    "overall": {
+      "type": "string",
+      "enum": ["pass", "fail", "warning"],
+      "description": "Aggregated verdict: fail if any blocking failure; warning if non-blocking issues only; pass otherwise."
+    },
+    "blocking_failures": {
+      "type": "array",
+      "description": "Names of gates that produced a blocking failure.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "description": "Names of gates that produced non-blocking warnings or inconclusive results.",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
