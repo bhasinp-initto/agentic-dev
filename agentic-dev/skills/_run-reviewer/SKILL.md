@@ -169,6 +169,17 @@ Capture and validate the adversary's JSON output (same malformed-output handling
 
 ---
 
+## Auto-append checklist entries (per umbrella §13)
+
+Before generating the escalation packet, for EACH judgment or uncategorized concern that's triggering this escalation, call:
+
+`bin/log-incident.sh checklist rule="<concern.description>" caught_by="reviewer" incident_ref="<escalation packet path>"`
+
+This builds the cross-session checklist that future hardened-reviewer dispatches will read. If `log-incident.sh` fails (e.g., schema validation, file lock), log to validation-log.txt and continue — auto-append must never block the pipeline (P7-L4).
+
+For blocking verdicts: same pattern, `caught_by="reviewer"`.
+For adversary concerns (second-pass): `caught_by="adversary"`.
+
 ### `verdict: "concern"` → route by category
 
 Iterate over all concerns in the verdict. For each concern, check its `category` field.

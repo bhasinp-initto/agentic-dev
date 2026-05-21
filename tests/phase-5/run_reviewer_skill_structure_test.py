@@ -49,6 +49,9 @@ def main():
         "uncategorized",      # concern category
         "gate_failure",       # escalation trigger for gate short-circuit
         "auto-fix",           # auto-fix routing
+        "log-incident",       # P7: auto-append checklist entries
+        "checklist",          # P7: checklist target
+        "caught_by",          # P7: log-incident field
     ]
     for phrase in required_phrases:
         if phrase.lower() not in text.lower():

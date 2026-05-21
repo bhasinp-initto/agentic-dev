@@ -55,6 +55,9 @@ def main():
         "halt path",              # halt outcome path
         "cleanup-completed-goal", # worktree cleanup on success
         "telegram-notify",        # notification on success
+        "log-incident",           # P7: auto-append memory entry on halt
+        "memory",                 # P7: memory target
+        "observation",            # P7: log-incident field
     ]
     for phrase in required_phrases:
         if phrase.lower() not in text.lower():

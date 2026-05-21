@@ -235,6 +235,14 @@ Entered on any of:
 - `_run-reviewer` exits 1
 - auto_fix_exhausted (rounds == 2 and concerns remain)
 
+## Auto-append memory entry (per umbrella §13)
+
+On the halt path, before exiting, call:
+
+`bin/log-incident.sh memory observation="Goal <goal-id> halted: <halt reason>" consequence="Escalation packet generated; review and human-resume needed"`
+
+This builds the cross-session memory that future spec-drafter dispatches will read. Failure to append is logged but does not block (P7-L4).
+
 ### Halt procedure:
 
 1. Transition goal to halted (include head_ref + manifest_path if already populated):
