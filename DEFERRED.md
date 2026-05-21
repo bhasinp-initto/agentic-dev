@@ -13,7 +13,7 @@ This file is the single source of truth for tech debt across phases. Add to it w
 **Source:** Phase 1 final holistic code review.
 **What:** `agentic-dev/schemas/queue.schema.json` uses `additionalProperties: false` on goal items. Allowed fields today: `id`, `status`, `spec_path`, `intent_path`, `added_at`. P2's `/agentic-dev:intent` skill will likely need to add fields (`started_at`, `budget_overrides`, `worktree_path`, etc.) to goal items.
 **Decision required:** Either bump `schema_version` to `"0.2"` and add fields explicitly, OR relax `additionalProperties` to `false` only at the top-level queue, not on goal items.
-**Target:** P2-T1 (first task of Phase 2) — decide before writing any code that writes goals.
+**Target:** P3-T1 (deferred from P2 — P2 didn't touch queue.yaml so the decision didn't surface). Must decide before writing any code that adds new fields to goal items.
 
 ---
 
@@ -39,13 +39,13 @@ This file is the single source of truth for tech debt across phases. Add to it w
 
 **Source:** T5 code review.
 **What:** `tests/phase-1/smoke_test.sh` uses `exit 1` on first failed grep assertion, vs. `status_test.sh` which accumulates with `ok=0` and reports all failures before exiting. Fail-accumulate gives better signal during iteration.
-**Target:** Phase 2 test polish (low priority).
+**Target:** P3 test polish (deferred from P2; low priority).
 
 ### P1-DEF-005 — Cost claim in tests/README.md is approximate
 
 **Source:** T5 code review.
 **What:** README says "well under a dollar" for a full `run_all.sh`. Dispatch brief said budget $1–$2. Empirical usage so far is $0.50–$1 per full run. Refine the claim with observed data once more runs accumulate.
-**Target:** Phase 2 or whenever observations stabilize.
+**Target:** P3 or whenever observations stabilize (deferred from P2).
 
 ### P1-DEF-006 — `run_all.sh` doesn't emit machine-readable failure attribution
 
@@ -57,7 +57,7 @@ This file is the single source of truth for tech debt across phases. Add to it w
 
 **Source:** T2 code review.
 **What:** `tests/phase-1/init_test.sh` has three nearly-identical Python heredocs that load a schema, parse a YAML/JSON file, and validate. Factoring into `tests/lib/validate-schema.py` would reduce duplication.
-**Target:** P2 or whenever a fourth state file is added to the test surface.
+**Target:** P3 or whenever a fourth state file is added to the test surface (deferred from P2).
 
 ### P1-DEF-008 — SKILL.md "Do NOT" sections use English not tool-level constraints
 

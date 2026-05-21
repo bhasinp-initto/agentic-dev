@@ -2,7 +2,7 @@
 
 A Claude Code plugin that automates the three-role development pattern: a hardened agentic loop that implements, reviews, and escalates to the human only when quality requires it.
 
-This is **v0.1** — only the plugin skeleton and the `/agentic-dev:init` and `/agentic-dev:status` skills are shipped. The full agentic loop ships in subsequent phases (P2–P8).
+This is **v0.2** — the plugin scaffold plus the spec-drafting layer (`/agentic-dev:intent`, `--refine` mode, `/agentic-dev:_check-approval` with an AI validator that turns concerns into new questions rather than rejections). The implementer subagent and the rest of the agentic loop ship in subsequent phases (P3–P8).
 
 See `docs/superpowers/specs/2026-05-20-three-role-agentic-pattern-design.md` in the source repository for the full design.
 
