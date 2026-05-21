@@ -29,6 +29,11 @@ claude --plugin-dir "$PLUGIN_DIR" \
   -p "/agentic-dev:intent Add rate limiting per-tenant to the API" >/dev/null 2>&1 || true
 
 spec_files=(.claude/agentic/specs/*.md)
+if [[ "${spec_files[0]}" == ".claude/agentic/specs/*.md" ]]; then
+  echo "FAIL setup: fresh /agentic-dev:intent did not produce any spec file" >&2
+  ls -la .claude/agentic/specs/ >&2 || true
+  exit 1
+fi
 SPEC="${spec_files[0]}"
 
 # Answer the first QUESTION-N block; leave the rest unanswered
@@ -67,9 +72,8 @@ fi
 # The refine output must confirm that --refine mode ran (not fall back to
 # "not supported" or silently do nothing). Look for the "(refined)" annotation
 # or "intent drafted" in the output (skill prints one of these on success).
-if ! grep -qE '\(refined\)|intent drafted|agentic-dev: intent' "$refine_out"; then
-  echo "FAIL: --refine mode was not recognized by the skill (output did not contain expected confirmation)" >&2
-  echo "--- refine output ---" >&2
+if ! grep -qE '\(refined\)|intent drafted' "$refine_out"; then
+  echo "FAIL: --refine mode was not recognized by the skill (no '(refined)' or 'intent drafted' in output; error refusals also indicate non-recognition)" >&2
   cat "$refine_out" >&2
   exit 1
 fi

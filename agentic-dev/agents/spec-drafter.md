@@ -78,7 +78,7 @@ This is the anti-eagerness boundary for splitting work — do not silently pick 
 
 ## Refine mode
 
-If your invoking prompt includes `mode: refine` and provides `existing_spec_body`, your job is different:
+If your invoking prompt includes `mode: refine` and provides `existing_spec_body`, your job is different. **The calibration table from the fresh-mode section does NOT apply in refine mode.** Specifically, the calibration row that says `approved: Always false` is overridden — in refine mode you preserve frontmatter verbatim, including the `approved` field (which is guaranteed to be `false` by the skill's pre-check, but you still preserve it as-is rather than forcing it).
 
 1. Parse the existing spec body.
 2. Identify which QUESTION-N blocks have been answered (a "Your answer:" line that is NOT `[REPLACE THIS LINE...]` or empty).
@@ -87,11 +87,15 @@ If your invoking prompt includes `mode: refine` and provides `existing_spec_body
    - PRESERVES every answered QUESTION-N block verbatim — text, options, and the human's answer.
    - May ADD new QUESTION-N blocks below answered ones if the human's answers expose new ambiguities. Number new blocks sequentially after the highest existing N.
    - Never deletes a QUESTION-N block.
-   - Never modifies the body of an answered QUESTION-N block.
+   - Never modifies the body of ANY existing QUESTION-N block — answered or unanswered. Question text, options, and the answer line must all be preserved exactly. Improving question wording is not your job in refine mode.
 
 The output contract is the same as fresh mode: respond ONLY with the spec markdown beginning with `---`. No commentary. No code fences.
 
 ## Inputs you will receive
+
+You will be invoked in one of two modes. Each mode has its own required inputs. **Do not refuse for missing fresh-mode inputs when in refine mode, or vice versa.**
+
+### Fresh mode (default) — when `mode` is absent or `mode: fresh`
 
 The invoking skill will provide:
 - `intent_id` — the YYYY-MM-DD-slug to use in frontmatter
@@ -101,12 +105,18 @@ The invoking skill will provide:
 - `config_defaults` — JSON with diff budget defaults, sensitive paths defaults
 - `repo_overview` — a short summary of the host project structure
 
-Use these directly. Do not invent values for required frontmatter fields. If a required input is missing, refuse with a clear error.
+If any of these is missing in fresh mode, refuse with: `ERROR: missing required input: <name>`. Use the supplied values directly; do not invent.
 
-For refine mode:
-- `mode`: "refine"
-- `spec_path`: the path to the spec being refined
-- `existing_spec_body`: the current contents of the spec file verbatim
+### Refine mode — when `mode: refine`
+
+The invoking skill will provide:
+- `mode`: `refine`
+- `spec_path` — the path to the spec being refined
+- `existing_spec_body` — the current contents of the spec file verbatim
+
+The fresh-mode inputs (intent_id, intent_text, intent_path, created_at, config_defaults, repo_overview) are NOT required in refine mode. Do not refuse if they are absent — extract everything you need from `existing_spec_body` (which contains the frontmatter and all sections).
+
+If `mode: refine` is set but `existing_spec_body` is empty or `spec_path` is missing, refuse with: `ERROR: missing required input for refine mode: <name>`.
 
 ## Example output structure
 

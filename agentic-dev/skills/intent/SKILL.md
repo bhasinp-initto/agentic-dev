@@ -16,17 +16,34 @@ If `$ARGUMENTS` begins with `--refine ` (a literal `--refine` followed by a spac
 
 Parse the remaining text as a spec file path. If the path:
 - Does not exist → print `agentic-dev: --refine target does not exist: <path>` and exit.
-- Does not match `.claude/agentic/specs/*.md` → print `agentic-dev: --refine target must be a spec file under .claude/agentic/specs/` and exit.
+- After resolving the path to its canonical form (use the Bash tool: `realpath "<input-path>"` or `python3 -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "<input-path>"`), does NOT start with `<project-root>/.claude/agentic/specs/` where `<project-root>` is the current working directory (verify with `pwd`) → print `agentic-dev: --refine target must be a spec file under .claude/agentic/specs/ in this project root` and exit. This guards against path traversal (`../../etc/passwd`) and against editing specs in other projects.
 - Has `approved: true` in its frontmatter → print `agentic-dev: cannot --refine an approved spec; set approved: false first if you want to re-open it` and exit.
 
 Otherwise:
 
 1. Read the current spec file in full.
 2. Parse it: extract the existing frontmatter, the sections, and the existing QUESTION-N blocks (both answered and unanswered).
-3. Dispatch the spec-drafter subagent with refine inputs (described in the drafter agent definition). The drafter receives the CURRENT spec body and must produce an UPDATED spec body that:
-   - Preserves every "Your answer:" line that has been modified by the human (anything that's not `[REPLACE THIS LINE...]`).
-   - May add new QUESTION-N blocks if the human's answers exposed new ambiguities.
-   - Never deletes or modifies existing answered QUESTIONs.
+3. Dispatch the spec-drafter subagent (subagent_type: spec-drafter) with this prompt template — substitute the real spec path and full file body before sending:
+
+   ```
+   You are refining an existing spec. Preserve all human answers verbatim.
+
+   mode: refine
+   spec_path: <path-to-spec>
+
+   existing_spec_body:
+   <the full current contents of the spec file, verbatim>
+
+   Output the updated spec markdown per your refine-mode contract:
+   - Frontmatter preserved exactly (do not change id, schema_version, intent_path, created_at, approved).
+   - Every answered QUESTION-N block preserved verbatim (text, options, the human's answer).
+   - May add new QUESTION-N blocks below answered ones if answers exposed new ambiguities, numbered after the highest existing N.
+   - Never delete a QUESTION-N block; never modify the body of any existing QUESTION-N block, answered or not.
+
+   Begin your response with the frontmatter opener `---`.
+   ```
+
+   **Substitute all `<…>` placeholders with the actual computed values** before dispatching. The drafter must see real values (e.g., the literal file path and the literal file contents), not literal placeholder text.
 4. Write the drafter's response verbatim to the spec file (overwrites the previous content).
 5. Print the same next-steps as the fresh path, but with `(refined)` annotating the spec path.
 
@@ -101,12 +118,21 @@ Output the complete spec markdown per your calibration table and output contract
 
 ## Capture the drafter's output
 
-The Agent tool returns the drafter's response. The response should begin with `---` (the frontmatter opener). If it doesn't, or if the response starts with `ERROR:`, do NOT write a spec file. Instead:
+The Agent tool returns the drafter's response. The response should begin with `---` (the frontmatter opener). If it doesn't, or if the response starts with `ERROR:`, do NOT write the spec file.
+
+For fresh mode:
 - Print the drafter's response to the user.
 - Print: `agentic-dev: drafter did not return a valid spec.`
 - Print: `  intent file preserved at: .claude/agentic/intents/<intent_id>.md`
-- Print: `  To retry the draft, delete the intent file and re-run /agentic-dev:intent, or run /agentic-dev:intent --refine <spec-path> if a spec file already exists.`
+- Print: `  To retry the draft, delete the intent file and re-run /agentic-dev:intent, or use /agentic-dev:intent --refine to iterate.`
 - Exit.
+
+For refine mode:
+- Print the drafter's response to the user.
+- Print: `agentic-dev: drafter did not return a valid spec.`
+- Print: `  existing spec unchanged at: <spec_path>`
+- Print: `  Re-run /agentic-dev:intent --refine <spec_path> to retry.`
+- Exit. Do NOT overwrite the spec file with the bad response — leave the existing content intact.
 
 ## Write the spec file
 

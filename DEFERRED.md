@@ -93,6 +93,30 @@ This file is the single source of truth for tech debt across phases. Add to it w
 **What:** `agentic-dev/bin/validate-spec.sh`'s project-root derivation for the intent_path fallback hardcodes 4 levels of `os.path.dirname` based on the canonical spec path `.claude/agentic/specs/<file>.md`. If a future phase introduces nested spec directories (e.g., `specs/p3/<file>.md`), the fallback will yield the wrong project root. A robust replacement would walk upward looking for the `.claude/agentic` directory.
 **Target:** v0.2.x or whenever spec directory structure changes.
 
+### P2-DEF-005 — Refine test does not verify preservation of multiple answered questions
+
+**Source:** T4 code review.
+**What:** `tests/phase-2/intent_refine_test.sh` answers only QUESTION-1 and verifies only QUESTION-1's preservation. A drafter regression that renumbers or paraphrases QUESTION-2+ would go undetected. Worth extending to answer two questions and verify both survive.
+**Target:** v0.2.x polish.
+
+### P2-DEF-006 — Refine test regex against bold-markup drift
+
+**Source:** T4 code review.
+**What:** The Python heredoc in `intent_refine_test.sh` uses `re.sub` to patch QUESTION-1's "Your answer" line, with a regex that matches exact `**Your answer:**`. If the drafter ever emits surrounding whitespace or a slightly different markup, the regex silently no-ops and the test produces a misleading FAIL on the preservation check. Add `assert new_text != text` after the substitution, or use a looser pattern.
+**Target:** v0.2.x polish.
+
+### P2-DEF-007 — Refine idempotency: stable output on re-run with no answer changes
+
+**Source:** T4 code review.
+**What:** Running `--refine` twice without changing answers should produce stable output (no question-count churn, no renumbering). The "never delete, never modify" rules imply this, but it is not stated explicitly or tested. mtime changes on every run regardless of content identity.
+**Target:** v0.2.x polish.
+
+### P2-DEF-008 — Conditional question deletion in refine
+
+**Source:** T4 code review.
+**What:** `spec-drafter.md`'s refine rule `Never deletes a QUESTION-N block` is absolute. If Q3 picks branch A and Q4 only makes sense in branch B, Q4 survives forever. This is intentionally conservative. Worth a comment in the spec-drafter prompt acknowledging this is a known UX limitation.
+**Target:** v0.3 or later if conditional question trees become a real need.
+
 ---
 
 ## How to use this file
