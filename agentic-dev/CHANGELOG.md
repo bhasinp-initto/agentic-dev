@@ -47,7 +47,7 @@ Internal lifecycle skills (`_run-implementer`, `_run-gates`, `_run-reviewer`, `_
 - Subagent-driven-development pattern with two-stage review (spec + code quality) per task held throughout — caught numerous real bugs.
 
 ### Notes
-- v1.0 is local-only by default. To distribute publicly, add the GitHub remote (e.g., `Pankaj-Bhasin/agenticDev`) and push.
+- Repository: `bhasinp-initto/agentic-dev` (private). Install via `/plugin marketplace add bhasinp-initto/agentic-dev`.
 - DEFERRED.md tracks items not addressed in P1-P8 (drafter-running-ahead, cross-model reviewer, walkthrough integration, multi-developer support). Post-v1 work.
 
 ## [0.7.0] — 2026-05-21

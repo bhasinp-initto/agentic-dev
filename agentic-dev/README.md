@@ -10,7 +10,7 @@ See `docs/superpowers/specs/2026-05-20-three-role-agentic-pattern-design.md` (um
 
 ```bash
 # 1. Install (in any Claude Code session)
-/plugin marketplace add Pankaj-Bhasin/agenticDev
+/plugin marketplace add bhasinp-initto/agentic-dev
 /plugin install agentic-dev
 
 # 2. Bootstrap a host project
