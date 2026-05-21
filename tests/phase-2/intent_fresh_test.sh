@@ -1,7 +1,16 @@
 #!/usr/bin/env bash
 # End-to-end test: /agentic-dev:intent "<text>" produces an intent file and
 # a draft spec file with QUESTION-N blocks and approved=false.
+#
+# COST: This test invokes `claude -p` (headless mode), which bills against
+# Anthropic Console API credits (NOT against your Max plan). Per
+# docs/superpowers/test-cost-policy.md, this test is opt-in via AGENTIC_E2E=1.
 set -euo pipefail
+
+if [[ "${AGENTIC_E2E:-0}" != "1" ]]; then
+  echo "SKIP intent_fresh_test (E2E test gated; set AGENTIC_E2E=1 to run; uses claude -p)"
+  exit 0
+fi
 
 # shellcheck source=/dev/null
 [ -f "$HOME/.claude/agentic-dev-test.env" ] && source "$HOME/.claude/agentic-dev-test.env"

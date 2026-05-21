@@ -2,7 +2,15 @@
 # End-to-end test of the approval gate: /agentic-dev:_check-approval on each
 # of the three fixtures (clean, unmeasurable, incoherent). Asserts the AI
 # validator's verdict and post-conditions on the spec file.
+#
+# COST: Invokes `claude -p` 6+ times (init + 3 fixture validations). Per
+# docs/superpowers/test-cost-policy.md, gated behind AGENTIC_E2E=1.
 set -euo pipefail
+
+if [[ "${AGENTIC_E2E:-0}" != "1" ]]; then
+  echo "SKIP approval_gate_test (E2E test gated; set AGENTIC_E2E=1 to run; uses claude -p ~6 times)"
+  exit 0
+fi
 
 # shellcheck source=/dev/null
 [ -f "$HOME/.claude/agentic-dev-test.env" ] && source "$HOME/.claude/agentic-dev-test.env"

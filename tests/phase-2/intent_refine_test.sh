@@ -2,7 +2,15 @@
 # Verify /agentic-dev:intent --refine <spec-path> re-runs the drafter on a
 # partial spec, preserving the human's existing answers and emitting zero
 # or more new QUESTION-N blocks if answers exposed new ambiguities.
+#
+# COST: Invokes `claude -p` (API-credit billed). Gated behind AGENTIC_E2E=1
+# per docs/superpowers/test-cost-policy.md.
 set -euo pipefail
+
+if [[ "${AGENTIC_E2E:-0}" != "1" ]]; then
+  echo "SKIP intent_refine_test (E2E test gated; set AGENTIC_E2E=1 to run; uses claude -p)"
+  exit 0
+fi
 
 # shellcheck source=/dev/null
 [ -f "$HOME/.claude/agentic-dev-test.env" ] && source "$HOME/.claude/agentic-dev-test.env"
