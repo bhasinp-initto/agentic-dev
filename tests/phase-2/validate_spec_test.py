@@ -98,6 +98,34 @@ APPROVED_WITH_QUESTION = textwrap.dedent("""\
     - Files touched: 25
 """)
 
+# QUESTION marker is PERSISTENT (it's an audit-trail annotation).
+# What matters for "resolved" is whether the **Your answer:** line was filled in.
+# This fixture has approved=true + marker preserved + answer filled → should PASS.
+APPROVED_WITH_ANSWERED_QUESTION = textwrap.dedent("""\
+    ---
+    id: 2026-05-20-x
+    schema_version: "0.1"
+    intent_path: .claude/agentic/intents/2026-05-20-x.md
+    approved: true
+    created_at: "2026-05-20T15:30:00Z"
+    ---
+
+    # Intent
+    Test.
+
+    <!-- QUESTION-1 (architectural-decision) -->
+    **Q:** Where should rate-limit counters live?
+    **Options:**
+    - A. In-process
+    - B. Redis
+    **Your answer:** B. Redis — already in use for sessions
+
+    # Diff budget
+    - Wall clock: 90 minutes
+    - Diff lines: 800
+    - Files touched: 25
+""")
+
 BAD_FRONTMATTER = "not yaml frontmatter at all, just plain text"
 
 APPROVED_BAD_BUDGET = textwrap.dedent("""\
@@ -184,6 +212,13 @@ def main():
     code, out = run_validator(APPROVED_WITH_QUESTION)
     check("approved-with-question exits 1", lambda: code == 1)
     check("approved-with-question names QUESTION-1", lambda: "QUESTION-1" in out)
+    check("approved-with-question mentions placeholder hint", lambda: "REPLACE THIS LINE" in out)
+
+    # Marker preserved + answer filled in: should now PASS (markers are persistent
+    # audit annotations; only unfilled placeholders are unresolved).
+    code, out = run_validator(APPROVED_WITH_ANSWERED_QUESTION)
+    check("approved-with-answered-question exits 0", lambda: code == 0)
+    check("approved-with-answered-question state approved", lambda: "state: approved" in out)
 
     code, out = run_validator(BAD_FRONTMATTER)
     check("bad-frontmatter exits 1", lambda: code == 1)

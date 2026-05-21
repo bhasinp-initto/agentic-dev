@@ -187,27 +187,73 @@ if [[ "$BUDGET_OUTPUT" == BUDGET_ERROR* ]]; then
   fail "${BUDGET_OUTPUT#BUDGET_ERROR: }"
 fi
 
-# Check for unresolved QUESTION-N blocks if approved=true
+# Check for unresolved questions.
+#
+# Design note: QUESTION markers (`<!-- QUESTION-N (category) -->`) are PERSISTENT
+# audit-trail annotations. They stay in the spec even after the question is
+# answered. What indicates "unresolved" is an unfilled `[REPLACE THIS LINE ...]`
+# placeholder under the `**Your answer:**` line. The validator therefore counts
+# placeholders, not markers.
+#
+# For approved=true: any unfilled placeholder → reject. The error message names
+# the QUESTION-N each unfilled placeholder belongs to (the nearest marker above
+# the placeholder line).
+#
+# For approved=false: count placeholders for the "questions remaining" display.
 if [[ "$APPROVED" == "True" ]]; then
-  if grep -qE '<!-- QUESTION-[0-9]+ ' "$SPEC_FILE"; then
-    QUESTIONS="$(grep -nE '<!-- QUESTION-[0-9]+ ' "$SPEC_FILE" | sed -E 's/^([0-9]+):.*<!-- (QUESTION-[0-9]+) \(([^)]+)\).*/  - \2 (\3) at line \1/')"
+  UNRESOLVED="$(python3 - <<'PY'
+import os, re
+spec_file = os.environ["SPEC_FILE"]
+lines = open(spec_file).read().splitlines()
+marker_re = re.compile(r'^<!-- (QUESTION-[0-9]+)\s*(\([^)]+\))?\s*-->')
+placeholder_re = re.compile(r'\[REPLACE THIS LINE')
+
+last_marker = None
+last_marker_line = None
+unresolved = []  # list of (marker, marker_line_no, placeholder_line_no)
+for idx, line in enumerate(lines, start=1):
+    m = marker_re.match(line)
+    if m:
+        last_marker = m.group(1)
+        last_marker_line = idx
+        continue
+    if placeholder_re.search(line):
+        # Find the nearest marker above
+        if last_marker:
+            unresolved.append((last_marker, last_marker_line, idx))
+        else:
+            # Placeholder not under any QUESTION block (e.g., in body text)
+            unresolved.append(("(no QUESTION marker)", None, idx))
+
+if not unresolved:
+    print("OK")
+else:
+    for marker, ml, pl in unresolved:
+        if ml:
+            print(f"UNRESOLVED: {marker} (marker line {ml}, unfilled answer line {pl})")
+        else:
+            print(f"UNRESOLVED: {marker} (placeholder line {pl})")
+PY
+)"
+
+  if [[ "$UNRESOLVED" != "OK" ]]; then
     echo "agentic-dev: spec validation failed"
     echo "  file: $SPEC_FILE"
-    echo "  ERROR: approved=true but unresolved QUESTION blocks remain:"
-    echo "$QUESTIONS"
-    echo "  Either answer those questions or set approved=false."
+    echo "  ERROR: approved=true but unresolved question(s) detected (look for '[REPLACE THIS LINE' placeholders):"
+    while IFS= read -r line; do
+      echo "  - ${line#UNRESOLVED: }"
+    done <<< "$UNRESOLVED"
+    echo "  Either fill in each '**Your answer:**' line or set approved=false."
     exit 1
-  fi
-  if grep -qF "[REPLACE THIS LINE" "$SPEC_FILE"; then
-    fail "approved=true but '[REPLACE THIS LINE' placeholder(s) still present in the spec body"
   fi
   echo "agentic-dev: spec validation passed"
   echo "  file: $SPEC_FILE"
   echo "  state: approved"
   echo "  Next: run /agentic-dev:_check-approval $SPEC_FILE to dispatch the AI validator."
 else
-  REMAINING="$(grep -cE '<!-- QUESTION-[0-9]+ ' "$SPEC_FILE" || true)"
+  REMAINING="$(grep -cF '[REPLACE THIS LINE' "$SPEC_FILE" || true)"
+  TOTAL="$(grep -cE '<!-- QUESTION-[0-9]+' "$SPEC_FILE" || true)"
   echo "agentic-dev: spec validation passed"
   echo "  file: $SPEC_FILE"
-  echo "  state: draft ($REMAINING questions remaining)"
+  echo "  state: draft ($REMAINING of $TOTAL questions unanswered)"
 fi

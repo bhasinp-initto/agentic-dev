@@ -3,6 +3,21 @@
 All notable changes to `agentic-dev` are documented here.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.0.2] — 2026-05-21
+
+Caught by first real-project install on a real spec.
+
+### Fixed
+- **`validate-spec.sh` rejected approved specs even when all questions were answered.** The validator grepped for any `<!-- QUESTION-N -->` marker and rejected on marker presence alone, but the drafter emits QUESTION markers as **persistent audit-trail annotations** — the user fills in the `**Your answer:**` line beneath each marker, the marker stays. The validator was conflating "marker present" with "unresolved." Now: validator counts `[REPLACE THIS LINE` placeholders (the actual "unanswered" sentinel) instead of markers. An approved spec with markers + filled answers passes; an approved spec with any unfilled placeholder is rejected with an error that names the QUESTION-N each unfilled placeholder belongs to.
+- "questions remaining" count in draft-state output now reports unfilled placeholders out of total questions (e.g., `state: draft (3 of 13 questions unanswered)`) instead of just total marker count.
+
+### Test changes
+- Added `APPROVED_WITH_ANSWERED_QUESTION` fixture (asserts approval passes when markers are preserved + answers filled).
+- Added assertion that the `approved-with-question` failure message mentions the placeholder hint.
+
+### Notes
+- Existing v1.0.x installs that worked around this by stripping markers should NOT need to undo that workaround — both stripped-markers and preserved-markers states are now valid as long as answers are filled. Preserved markers are recommended for traceability.
+
 ## [1.0.1] — 2026-05-21
 
 Post-ship bug fixes caught by first real-project install.
