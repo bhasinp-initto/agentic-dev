@@ -1,0 +1,25 @@
+{
+  "schema_version": "0.1",
+  "goal_id": "2026-05-21-add-rate-limiting",
+  "reviewer_role": "primary",
+  "reviewed_at": "2026-05-21T14:30:00Z",
+  "verdict": "clean",
+  "concerns": [],
+  "checks_run": [
+    {
+      "name": "scope_against_spec",
+      "outcome": "pass",
+      "evidence": "all 3 touched files (src/rate-limiter.ts, tests/rate-limiter.test.ts, docs/rate-limiting.md) are in scope per spec"
+    },
+    {
+      "name": "secrets_scan",
+      "outcome": "pass",
+      "evidence": "no hard-coded tokens, API keys, or credentials found in diff"
+    },
+    {
+      "name": "test_coverage_delta",
+      "outcome": "pass",
+      "evidence": "new module has 4 test cases covering the sliding-window boundary conditions"
+    }
+  ]
+}

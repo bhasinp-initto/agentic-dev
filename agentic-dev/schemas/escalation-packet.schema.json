@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Escalation Packet",
+  "description": "Structured escalation record generated when a reviewer verdict or gate failure requires human intervention.",
+  "type": "object",
+  "required": ["schema_version", "goal_id", "generated_at", "trigger", "concerns", "manifest_path", "summary", "suggested_next_actions"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "0.1"
+    },
+    "goal_id": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}-[a-z0-9-]+$",
+      "description": "YYYY-MM-DD-<topic-slug>"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when the escalation packet was generated."
+    },
+    "trigger": {
+      "type": "string",
+      "enum": ["reviewer_blocking", "judgment_concerns", "gate_failure", "auto_fix_exhausted", "budget_hard_halt", "spec_drift"],
+      "description": "What caused the escalation."
+    },
+    "concerns": {
+      "type": "array",
+      "description": "Concerns that triggered or are relevant to this escalation.",
+      "items": {
+        "type": "object",
+        "required": ["file", "line", "severity", "category", "description"],
+        "additionalProperties": false,
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "Relative path to the file containing the concern."
+          },
+          "line": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Line number of the concern (0 if file-level)."
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["blocking", "concern"],
+            "description": "blocking halts the pipeline; concern routes to auto-fix or escalation."
+          },
+          "category": {
+            "type": "string",
+            "enum": ["mechanical", "judgment", "uncategorized"],
+            "description": "mechanical concerns may auto-fix; judgment and uncategorized concerns escalate."
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Human-readable description of the concern."
+          }
+        }
+      }
+    },
+    "manifest_path": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Path to the goal manifest file."
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable summary of why escalation was triggered and what the human needs to decide."
+    },
+    "suggested_next_actions": {
+      "type": "array",
+      "description": "Ordered list of suggested actions the human can take to resolve the escalation.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "verdict_path": {
+      "type": ["string", "null"],
+      "description": "Path to the reviewer-verdict file, if applicable."
+    },
+    "diff_envelope_path": {
+      "type": ["string", "null"],
+      "description": "Path to the diff envelope file for the goal."
+    },
+    "spec_path": {
+      "type": ["string", "null"],
+      "description": "Path to the goal spec file."
+    },
+    "worktree_path": {
+      "type": ["string", "null"],
+      "description": "Path to the git worktree for the goal, if one was created."
+    }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "schema_version": "0.1",
+  "goal_id": "2026-05-21-add-rate-limiting",
+  "generated_at": "2026-05-21T14:46:00Z",
+  "trigger": "judgment_concerns",
+  "concerns": [
+    {
+      "file": "src/rate-limiter.ts",
+      "line": 112,
+      "severity": "concern",
+      "category": "judgment",
+      "description": "The in-memory sliding window does not survive process restart; spec §3 states 'persistent across restarts' — this implementation silently drops that requirement without a deferral entry"
+    }
+  ],
+  "manifest_path": ".claude/agentic/manifests/2026-05-21-add-rate-limiting.json",
+  "verdict_path": ".claude/agentic/reviewer-verdicts/2026-05-21-add-rate-limiting.json",
+  "diff_envelope_path": ".claude/agentic/diffs/2026-05-21-add-rate-limiting.json",
+  "spec_path": ".claude/agentic/specs/2026-05-21-add-rate-limiting.md",
+  "worktree_path": "/tmp/agentic-worktrees/2026-05-21-add-rate-limiting",
+  "summary": "Primary reviewer found 1 judgment-category concern: the rate-limiter implementation silently omits the spec's persistence requirement (§3) without a DEFERRED.md entry. This requires human review to decide whether to address, defer formally, or accept the scope reduction.",
+  "suggested_next_actions": [
+    "address: implement Redis-backed sliding window to satisfy §3 persistence requirement",
+    "skip: formally add a DEFERRED.md entry and re-run reviewer to clear the concern",
+    "abort: close goal and replan with persistence as an explicit sub-goal"
+  ]
+}

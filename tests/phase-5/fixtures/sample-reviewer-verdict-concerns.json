@@ -1,0 +1,40 @@
+{
+  "schema_version": "0.1",
+  "goal_id": "2026-05-21-add-rate-limiting",
+  "reviewer_role": "primary",
+  "reviewed_at": "2026-05-21T14:45:00Z",
+  "verdict": "concern",
+  "concerns": [
+    {
+      "file": "src/rate-limiter.ts",
+      "line": 87,
+      "severity": "concern",
+      "category": "mechanical",
+      "description": "Rate-limiter window size is hard-coded to 60000ms with no constant or config key; should be extracted to a named constant to match the project's style guide"
+    },
+    {
+      "file": "src/rate-limiter.ts",
+      "line": 112,
+      "severity": "concern",
+      "category": "judgment",
+      "description": "The in-memory sliding window does not survive process restart; spec §3 states 'persistent across restarts' — this implementation silently drops that requirement without a deferral entry"
+    }
+  ],
+  "checks_run": [
+    {
+      "name": "scope_against_spec",
+      "outcome": "pass",
+      "evidence": "touched files match the spec's allowed-file list"
+    },
+    {
+      "name": "secrets_scan",
+      "outcome": "pass",
+      "evidence": "no credentials or tokens detected"
+    },
+    {
+      "name": "spec_requirements_coverage",
+      "outcome": "fail",
+      "evidence": "spec requirement §3 (persistent across restarts) not addressed; no DEFERRED.md entry found"
+    }
+  ]
+}

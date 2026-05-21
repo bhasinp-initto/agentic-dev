@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Reviewer Verdict",
+  "description": "Structured verdict produced by the hardened-reviewer or reviewer-adversary subagent after inspecting a goal's manifest, diff, and spec.",
+  "type": "object",
+  "required": ["schema_version", "goal_id", "reviewer_role", "reviewed_at", "verdict", "concerns", "checks_run"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "0.1"
+    },
+    "goal_id": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}-[a-z0-9-]+$",
+      "description": "YYYY-MM-DD-<topic-slug>"
+    },
+    "reviewer_role": {
+      "type": "string",
+      "enum": ["primary", "adversary"],
+      "description": "Whether this verdict was produced by the primary reviewer or the adversary second-pass."
+    },
+    "reviewed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when the review was completed."
+    },
+    "verdict": {
+      "type": "string",
+      "enum": ["clean", "concern", "blocking"],
+      "description": "Overall verdict: clean (no concerns), concern (non-blocking issues found), blocking (halts the pipeline)."
+    },
+    "concerns": {
+      "type": "array",
+      "description": "List of concerns found during review. Empty array when verdict is clean.",
+      "items": {
+        "type": "object",
+        "required": ["file", "line", "severity", "category", "description"],
+        "additionalProperties": false,
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "Relative path to the file containing the concern."
+          },
+          "line": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Line number of the concern (0 if file-level)."
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["blocking", "concern"],
+            "description": "blocking halts the pipeline; concern routes to auto-fix or escalation."
+          },
+          "category": {
+            "type": "string",
+            "enum": ["mechanical", "judgment", "uncategorized"],
+            "description": "mechanical concerns may auto-fix; judgment and uncategorized concerns escalate."
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Human-readable description of the concern."
+          }
+        }
+      }
+    },
+    "checks_run": {
+      "type": "array",
+      "description": "List of checks performed during this review pass.",
+      "items": {
+        "type": "object",
+        "required": ["name", "outcome", "evidence"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Identifier for the check (e.g. scope_against_spec, secrets_scan)."
+          },
+          "outcome": {
+            "type": "string",
+            "enum": ["pass", "fail"],
+            "description": "Whether the check passed or failed."
+          },
+          "evidence": {
+            "type": "string",
+            "description": "Brief evidence or rationale for the outcome."
+          }
+        }
+      }
+    }
+  }
+}
