@@ -38,6 +38,23 @@ halted, or manually interrupted.
 
 ---
 
+## Step 1a: Pre-check — Orphan Approved Specs
+
+Before checking the circuit breaker, scan for "orphan approved specs" — specs in `.claude/agentic/specs/*.md` with `approved: true` in frontmatter, but whose `id` is NOT present in `.claude/agentic/queue.yaml`'s goals list (at any status).
+
+For each orphan found, print:
+```
+NOTICE: approved spec not in queue: <spec-path>
+  goal id: <id>
+  run /agentic-dev:_check-approval <spec-path> to validate and auto-enqueue.
+```
+
+This catches the case where a user manually set `approved: true` and ran `/agentic-dev:start` without going through the AI validator. The fix is to run `_check-approval` (which validates AND enqueues on the clean path).
+
+Do NOT auto-enqueue from /start — that would skip the AI validator. Just warn and proceed. The user will still see "Queue empty" or similar from the orchestrator and know what to do.
+
+---
+
 ## Step 1: Pre-check — Circuit Breaker State
 
 Read `.claude/agentic/state.json` and inspect `circuit_breaker.state`.

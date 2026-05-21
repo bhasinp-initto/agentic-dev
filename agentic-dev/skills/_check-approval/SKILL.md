@@ -71,7 +71,7 @@ The stdin-piped approach avoids quoting hazards: the subagent's response can con
 
 ## On verdict: clean
 
-Print exactly:
+Print:
 ```
 agentic-dev: AI validator verdict: clean
   spec: <path>
@@ -83,7 +83,15 @@ Use the Bash tool to append to `.claude/agentic/validation-log.txt`:
 echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) | <spec-id> | clean" >> .claude/agentic/validation-log.txt
 ```
 
-Do NOT modify the spec file. Do not edit anything.
+**Then enqueue the goal so /agentic-dev:start can run it.** Use the Bash tool to call `enqueue-goal.sh`:
+
+```bash
+${CLAUDE_PLUGIN_ROOT}/bin/enqueue-goal.sh <spec-id>
+```
+
+The helper validates that the spec is still `approved: true`, finds or appends the matching goal entry in `.claude/agentic/queue.yaml` with `status: approved`, schema-validates, and writes atomically. If the goal is already enqueued at status=approved, the helper is a no-op (idempotent). Print the helper's stdout so the user sees the queue state change. If the helper exits non-zero, surface the error but do NOT revert the AI-validator clean verdict — enqueue is bookkeeping, not validation.
+
+Do NOT modify the spec file. Do not edit anything except the queue (via enqueue-goal.sh) and the validation log.
 
 ## On verdict: concerns
 

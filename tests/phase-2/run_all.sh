@@ -20,6 +20,10 @@ echo "=== hook_test ==="
 bash "$DIR/hook_test.sh"
 
 echo
+echo "=== enqueue_goal_test ==="
+bash "$DIR/enqueue_goal_test.sh"
+
+echo
 echo "=== intent_refine_test ==="
 bash "$DIR/intent_refine_test.sh"
 
