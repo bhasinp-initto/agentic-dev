@@ -3,6 +3,21 @@
 All notable changes to `agentic-dev` are documented here.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.0.1] — 2026-05-21
+
+Post-ship bug fixes caught by first real-project install.
+
+### Fixed
+- **The intent → approval → queue → start chain was broken.** `_check-approval`'s clean verdict didn't enqueue the goal, and `/agentic-dev:start` only reads `queue.yaml`. Users would approve a spec, run `/agentic-dev:start`, and see "Queue empty". Now: clean verdict calls a new `bin/enqueue-goal.sh` helper that appends the goal to `queue.yaml` with `status: approved` (idempotent; promotes drafted/intent_only to approved; refuses to clobber running/completed/halted). 10 new deterministic assertions in `tests/phase-2/enqueue_goal_test.sh`.
+- **`/agentic-dev:start` now warns about orphan approved specs.** New Step 1a scans `.claude/agentic/specs/*.md` for `approved: true` entries not present in `queue.yaml`, prints a NOTICE suggesting `_check-approval` to validate-and-auto-enqueue. Defensive: never auto-enqueues from `/start` (that would skip the AI validator).
+- **`/agentic-dev:init`'s closing message referenced a non-existent `/agentic-dev:configure-telegram` skill** (forward reference to a feature that never shipped — P5 went the placeholder-config route instead). Updated init's output to explain editing `.claude/agentic/config.yaml` directly.
+
+### Added
+- `agentic-dev/bin/enqueue-goal.sh` — manually-invocable enqueue helper for goals approved before this version shipped, or for advanced workflows that bypass `_check-approval`. Idempotent; schema-validates before writing.
+
+### Notes
+- Existing v1.0.0 installs hit the queue-gap bug on every approved spec. Upgrade to v1.0.1 (`/plugin update agentic-dev`) and re-run `/agentic-dev:_check-approval <spec>` — the clean verdict will auto-enqueue.
+
 ## [1.0.0] — 2026-05-21
 
 **v1.0** — the full three-role agentic development pattern is complete and shippable.
