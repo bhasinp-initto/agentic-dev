@@ -2,7 +2,7 @@
 
 A Claude Code plugin that automates the three-role development pattern: a hardened agentic loop that implements, reviews, and escalates to the human only when quality requires it.
 
-This is **v0.5** — adds the AI judgment layer (hardened reviewer + second-pass adversary) with structured verdicts, escalation packets, and Telegram notifications (placeholder config — fill in `.claude/agentic/config.yaml`'s `telegram` field with `bot_token` + `chat_id` to enable real notifications; otherwise notifications log to file). The autonomous orchestrator (P6) wires the auto-fix loop and overnight queue next.
+This is **v0.6** — the autonomous orchestrator is alive. `/agentic-dev:start` runs the approved-goals queue end-to-end (implementer → gates → reviewer → routing). Auto-fix loop handles mechanical concerns (cap 2 rounds). Halt-on-blocking + circuit breaker. Overnight progression via ScheduleWakeup. `/agentic-dev:resume` is the after-halt human entry point. Cross-session memory (P7) and marketplace polish (P8) follow.
 
 See `docs/superpowers/specs/2026-05-20-three-role-agentic-pattern-design.md` in the source repository for the full design.
 
@@ -55,9 +55,16 @@ Reports the current queue, circuit-breaker state, and recent activity.
 - `/agentic-dev:_run-reviewer <goal-id>` — internal lifecycle skill. Dispatches the `hardened-reviewer` subagent (read-only, adversarial) on a goal that passed P4's gates. Runs `reviewer-adversary` as a second pass on clean verdicts. Routes concerns by category — mechanical concerns become an auto-fix queue entry (P6 drives the loop), judgment/uncategorized concerns trigger an escalation packet + Telegram notification.
 - Telegram notification helper at `bin/telegram-notify.sh` with placeholder-config mode. To enable real notifications, set `telegram.bot_token` and `telegram.chat_id` in `.claude/agentic/config.yaml`. Otherwise all notifications log to `.claude/agentic/notifications-log.txt` and the pipeline continues unaffected.
 
+### v0.6
+- `/agentic-dev:start [--until HH:MM | Nm | Nh]` — **public entry point**. Begin a queue run. The orchestrator advances goals one by one (implementer → gates → reviewer → routing). Optional `--until` argument sets a wall-clock cutoff.
+- `/agentic-dev:resume <decision>` — **public after-halt entry**. Decisions: `resume | skip | address | replan | abort`. Logs to `.claude/agentic/decisions.log`.
+- `/agentic-dev:_advance-goal <id>` — internal single-goal pipeline pass. Handles the auto-fix loop (cap 2 rounds) for mechanical concerns.
+- `/agentic-dev:_run-orchestrator` — internal queue-loop driver. Uses ScheduleWakeup to progress overnight.
+- State transition helpers: `bin/queue-set-status.sh`, `bin/circuit-breaker.sh`, `bin/cleanup-completed-goal.sh` — atomic, schema-validated updates to queue.yaml and state.json.
+
 ## What's coming next
 
-See repo issues / phase plans for P6 onward: overnight queue + circuit breaker + drafter-running-ahead + auto-fix loop wiring (P6), cross-session memory + auto-learning (P7), marketplace polish + community submission (P8).
+See repo issues / phase plans for P7 onward: cross-session memory + auto-learning from incidents (P7), marketplace polish + community submission (P8).
 
 ## Development
 

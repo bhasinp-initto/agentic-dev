@@ -3,6 +3,26 @@
 All notable changes to `agentic-dev` are documented here.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [0.6.0] — 2026-05-21
+
+The autonomous orchestrator ships. After approving specs, run `/agentic-dev:start` and the system processes the queue end-to-end: implementer writes code in worktree → gates verify → reviewer checks → auto-fix loop for mechanical concerns → escalation on judgment concerns → next goal. Halts are circuit-breaker-locked until human resumes.
+
+### Added
+- `bin/queue-set-status.sh` — atomic goal-status transitions with schema validation. Accepts `key=value` field updates (started_at, completed_at, baseline_ref, head_ref, etc.).
+- `bin/circuit-breaker.sh` — atomic state.json transitions. `halted` state requires halted_reason + halted_goal_id; auto-populates halted_at.
+- `bin/cleanup-completed-goal.sh` — post-success worktree removal (delegates to bin/worktree-cleanup.sh). Refuses if goal status isn't `completed`.
+- `skills/_advance-goal/SKILL.md` — internal single-goal pipeline. Wires implementer + gates + reviewer + routing decisions. Handles auto-fix loop with hard cap of 2 rounds; on cap-exhaustion, escalates as `auto_fix_exhausted`. Updates queue + circuit-breaker on clean/halt.
+- `skills/_run-orchestrator/SKILL.md` — internal queue loop. Picks first approved goal; runs `_advance-goal`; on success, schedules next wake-up via `ScheduleWakeup` (30s delay). On halt, exits with circuit breaker locked.
+- `skills/start/SKILL.md` — **public entry**. Optional `--until <HH:MM | Nm | Nh>` cutoff.
+- `skills/resume/SKILL.md` — **public after-halt entry**. Five decisions (resume | skip | address | replan | abort) with per-decision state transitions, all logged to `decisions.log`.
+- `tests/phase-6/` — 7 deterministic tests (3 state-helper, 4 skill-structure). Zero claude -p.
+
+### Notes
+- The auto-fix loop is now end-to-end functional. Mechanical reviewer concerns trigger a re-dispatched implementer with the concerns as kickoff input; up to 2 rounds. If the third reviewer pass still flags mechanical concerns, the loop escalates rather than spinning forever.
+- ScheduleWakeup-driven overnight runs: the orchestrator self-resumes between goals, processing the queue while you sleep. A blocking event halts; you wake up to escalation packets + a Telegram digest (if configured) plus a queue snapshot.
+- The orchestrator is "drafter-running-ahead" capable (umbrella §10) but v0.6 ships linear processing only. P7+ may add parallelism.
+- P6 dev cost: <$1 API credits (all plumbing; no LLM-driven tests).
+
 ## [0.5.0] — 2026-05-21
 
 AI judgment layer ships. After gates pass, the hardened reviewer reads spec + manifest + diff envelope and returns a structured verdict; clean verdicts get a second-pass adversary check; concerns routed by category. Escalation packets and Telegram notifications (placeholder-friendly) complete the human-in-the-loop signal path.
