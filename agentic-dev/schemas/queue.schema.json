@@ -1,14 +1,14 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Agentic Goal Queue",
-  "description": "Ordered list of goals to be processed by the orchestrator.",
+  "description": "Ordered list of goals processed by the orchestrator. v0.2 adds optional fields populated as a goal progresses through the lifecycle.",
   "type": "object",
   "required": ["schema_version", "goals"],
   "additionalProperties": false,
   "properties": {
     "schema_version": {
       "type": "string",
-      "const": "0.1"
+      "const": "0.2"
     },
     "goals": {
       "type": "array",
@@ -22,19 +22,28 @@
             "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}-[a-z0-9-]+$",
             "description": "YYYY-MM-DD-<topic-slug>"
           },
-          "spec_path": {
-            "type": ["string", "null"]
-          },
-          "intent_path": {
-            "type": ["string", "null"]
-          },
+          "spec_path": { "type": ["string", "null"] },
+          "intent_path": { "type": ["string", "null"] },
           "status": {
             "type": "string",
             "enum": ["intent_only", "drafted", "approved", "running", "completed", "halted", "abandoned"]
           },
-          "added_at": {
-            "type": "string",
-            "format": "date-time"
+          "added_at": { "type": ["string", "null"], "format": "date-time" },
+          "started_at": { "type": ["string", "null"], "format": "date-time" },
+          "completed_at": { "type": ["string", "null"], "format": "date-time" },
+          "halted_at": { "type": ["string", "null"], "format": "date-time" },
+          "baseline_ref": { "type": ["string", "null"] },
+          "head_ref": { "type": ["string", "null"] },
+          "worktree_path": { "type": ["string", "null"] },
+          "manifest_path": { "type": ["string", "null"] },
+          "budget_overrides": {
+            "type": ["object", "null"],
+            "additionalProperties": false,
+            "properties": {
+              "wall_clock_minutes_per_goal": { "type": "integer", "minimum": 1 },
+              "diff_lines_per_goal": { "type": "integer", "minimum": 1 },
+              "files_touched_per_goal": { "type": "integer", "minimum": 1 }
+            }
           }
         }
       }

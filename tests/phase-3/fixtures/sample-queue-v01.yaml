@@ -1,0 +1,7 @@
+schema_version: "0.1"
+goals:
+  - id: 2026-05-21-example-goal
+    spec_path: .claude/agentic/specs/2026-05-21-example-goal.md
+    intent_path: null
+    status: approved
+    added_at: "2026-05-21T10:00:00Z"

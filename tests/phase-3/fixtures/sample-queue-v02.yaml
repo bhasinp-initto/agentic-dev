@@ -1,0 +1,15 @@
+schema_version: "0.2"
+goals:
+  - id: 2026-05-21-example-goal
+    spec_path: .claude/agentic/specs/2026-05-21-example-goal.md
+    intent_path: null
+    status: running
+    added_at: "2026-05-21T10:00:00Z"
+    started_at: "2026-05-21T10:05:00Z"
+    completed_at: null
+    halted_at: null
+    baseline_ref: "abc1234"
+    head_ref: null
+    worktree_path: ".worktrees/goal-2026-05-21-example-goal"
+    manifest_path: null
+    budget_overrides: null

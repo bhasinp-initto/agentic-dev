@@ -1,0 +1,19 @@
+{
+  "schema_version": "0.1",
+  "goal_id": "2026-05-21-example-goal",
+  "baseline_ref": "abc1234",
+  "head_ref": "def5678",
+  "generated_at": "2026-05-21T10:42:00Z",
+  "files": [
+    {
+      "path": "src/health.ts",
+      "change_kind": "added",
+      "lines_added": 18,
+      "lines_removed": 0,
+      "hunks": [
+        { "old_start": 0, "old_count": 0, "new_start": 1, "new_count": 18, "content": "+export function health() {\n+  return { status: 'ok' };\n+}\n" }
+      ]
+    }
+  ],
+  "raw_patch": "diff --git a/src/health.ts b/src/health.ts\nnew file mode 100644\nindex 0000000..1234abc\n--- /dev/null\n+++ b/src/health.ts\n@@ -0,0 +1,18 @@\n+export function health() {\n+  return { status: 'ok' };\n+}\n"
+}

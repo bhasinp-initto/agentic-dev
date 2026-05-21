@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Agentic Completion Manifest",
+  "description": "Structured output the implementer subagent produces at the end of a goal.",
+  "type": "object",
+  "required": [
+    "schema_version", "goal_id", "spec_path", "worktree_path",
+    "baseline_ref", "status", "started_at",
+    "diff_stats", "tests", "self_check", "scope_check",
+    "adrs_filed", "spec_change_requests", "deferrals",
+    "clarifying_questions_asked", "artifacts", "commits"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "string", "const": "0.1" },
+    "goal_id": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}-[a-z0-9-]+$" },
+    "spec_path": { "type": "string", "minLength": 1 },
+    "worktree_path": { "type": "string", "minLength": 1 },
+    "baseline_ref": { "type": "string", "minLength": 1 },
+    "head_ref": { "type": ["string", "null"] },
+    "status": {
+      "type": "string",
+      "enum": ["complete", "blocked-on-clarification", "blocked-on-budget", "interrupted", "implementer-output-malformed"]
+    },
+    "started_at": { "type": "string", "format": "date-time" },
+    "completed_at": { "type": ["string", "null"], "format": "date-time" },
+    "diff_stats": {
+      "type": "object",
+      "required": ["files_touched", "lines_added", "lines_removed"],
+      "additionalProperties": false,
+      "properties": {
+        "files_touched": { "type": "integer", "minimum": 0 },
+        "lines_added": { "type": "integer", "minimum": 0 },
+        "lines_removed": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "tests": {
+      "type": "object",
+      "required": ["ran", "passed", "failed", "skipped"],
+      "additionalProperties": false,
+      "properties": {
+        "ran": { "type": "integer", "minimum": 0 },
+        "passed": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "skipped": { "type": "integer", "minimum": 0 },
+        "logs_path": { "type": ["string", "null"] }
+      }
+    },
+    "self_check": {
+      "type": "object",
+      "required": ["lint", "typecheck"],
+      "additionalProperties": false,
+      "properties": {
+        "lint": { "type": "string", "enum": ["clean", "failures", "not-run", "n/a"] },
+        "typecheck": { "type": "string", "enum": ["clean", "failures", "not-run", "n/a"] }
+      }
+    },
+    "scope_check": {
+      "type": "object",
+      "required": ["in_spec_files", "out_of_spec_files"],
+      "additionalProperties": false,
+      "properties": {
+        "in_spec_files": { "type": "array", "items": { "type": "string" } },
+        "out_of_spec_files": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "adrs_filed": { "type": "array", "items": { "type": "string" } },
+    "spec_change_requests": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["what", "reason"],
+        "additionalProperties": false,
+        "properties": {
+          "what": { "type": "string" },
+          "reason": { "type": "string" }
+        }
+      }
+    },
+    "deferrals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["item", "reason"],
+        "additionalProperties": false,
+        "properties": {
+          "item": { "type": "string" },
+          "reason": { "type": "string" }
+        }
+      }
+    },
+    "clarifying_questions_asked": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["question", "resolved_by"],
+        "additionalProperties": false,
+        "properties": {
+          "question": { "type": "string" },
+          "resolved_by": { "type": "string", "enum": ["spec_text", "escalated", "pending"] },
+          "answer": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "path"],
+        "additionalProperties": false,
+        "properties": {
+          "kind": { "type": "string" },
+          "path": { "type": "string" }
+        }
+      }
+    },
+    "commits": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["sha", "subject"],
+        "additionalProperties": false,
+        "properties": {
+          "sha": { "type": "string", "minLength": 7 },
+          "subject": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}
