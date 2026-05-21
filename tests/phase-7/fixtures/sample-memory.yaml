@@ -1,0 +1,5 @@
+schema_version: "0.1"
+entries:
+  - date: "2026-05-21"
+    observation: "Implementer guessed tenant_id when spec was silent on tenant scoping"
+    consequence: "Added explicit rule to drafter calibration table for tenant-scoping specs"

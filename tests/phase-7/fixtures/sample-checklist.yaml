@@ -1,0 +1,6 @@
+schema_version: "0.1"
+entries:
+  - date: "2026-05-21"
+    incident_ref: "ESC-2026-05-21-001"
+    rule: "When code adds a new DB query, check it goes through the tenant-scoped repository, not raw client"
+    caught_by: "reviewer"
