@@ -3,6 +3,30 @@
 All notable changes to `agentic-dev` are documented here.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.1.0] — 2026-05-21
+
+Auto-fix loop is no longer category-gated. Reviewer's `verdict` is the routing signal; `category` is implementer guidance. Caught by a real run where IDOR + CORS concerns escalated even though both had clear code-level fixes.
+
+### Changed
+- **Routing in `_run-reviewer`: any `verdict: concern` now goes to the auto-fix queue, regardless of concern category.** Previously, any `judgment`-category concern forced immediate escalation, which over-halted on issues that had clear remediation (security fixes with one-line patches, CORS lockdown, missing-validation patterns). The reviewer's `verdict` field already distinguishes code-fixable from architecturally-broken — the secondary category check was redundant and biased toward escalating.
+- **Auto-fix loop cap raised from 2 → 3 rounds in `_advance-goal`.** Judgment concerns sometimes need an extra pass for the implementer to converge.
+- **Implementer dispatch in the loop now passes concerns with their categories as informational metadata.** Implementer reads category as "what kind of fix is needed" (mechanical = direct fix, judgment = think carefully or file a spec_change_request) but doesn't gate routing on it.
+
+### Updated reviewer prompts
+- **`hardened-reviewer.md` clarified:** `mechanical` is the default category for anything code-fixable, including security issues with clear remediation (IDOR fixes, CORS lockdown, input validation, permission tightening). `judgment` is reserved for "fix requires changing the spec or making a value trade-off." `blocking` is reserved for "CANNOT be code-fixed; needs human decision before any code change" — hard-coded secrets that require new secret-management, severe scope violations, fundamentally wrong architectural underpinning.
+- **`reviewer-adversary.md` inherits the same clarification by reference.**
+- Reviewer no longer over-uses `judgment` as a safe default — explicit rule of thumb: "if you can write a one-paragraph instruction that lets the implementer fix it without a human, it's mechanical."
+
+### When you'd still see an escalation
+- `verdict: blocking` (the reviewer explicitly said "stop")
+- `auto_fix_exhausted` (3 rounds didn't converge)
+- Gate failure short-circuit (deterministic check failed)
+- Implementer writes a `spec_change_request` in its manifest (route via different escalation trigger in future)
+
+### Migration
+- No state-file changes. Existing halted goals can be `/agentic-dev:resume`'d normally; the new routing only affects future goals.
+- The new `/agentic-dev:resume accept` from 1.0.3 remains available for the operator-override path.
+
 ## [1.0.3] — 2026-05-21
 
 Two more bugs caught by the same real-project install, plus a new `accept` resume decision for "I reviewed the work, I'm happy with it as-is."

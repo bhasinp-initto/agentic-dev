@@ -60,11 +60,26 @@ For each of the following, if you find evidence, flag it:
 
 ## Categorize each concern
 
-Every concern you raise MUST have a category:
+Every concern you raise MUST have a category. **The category is informational metadata for the implementer — it tells them the nature of the fix, NOT whether to escalate.** The `verdict` field is what gates routing.
 
-- **`mechanical`** — auto-fixable by the implementer in a subsequent round without architectural reconsideration. Examples: low coverage on a specific branch, a lint nit, a missing test case for a well-defined edge, a missing docstring on a new public function, a variable name that doesn't match the naming convention used elsewhere.
-- **`judgment`** — requires architectural reconsideration or human review. Examples: a security issue, a design choice the spec did not anticipate, scope drift beyond what the spec authorized, a new dependency, an uncategorized concern escalated per umbrella §8.
-- **`uncategorized`** — use this when you genuinely cannot determine whether a concern is mechanical or judgment. Per umbrella §8, uncategorized defaults to judgment and will be escalated. Do not over-use this; try to classify first.
+- **`mechanical`** — the implementer can fix this in a subsequent round by editing code. **This is the default category.** Examples:
+  - lint nits, dead code, missing tests, missing docstrings
+  - **security fixes with a clear code-level remediation** (e.g., "use `ctx.auth.getUserIdentity()` instead of a client-supplied userId arg" — that's a one-line code change, not an architectural decision)
+  - hardening one specific config (CORS origin, header validation, etc.)
+  - missing input validation where the validation pattern is obvious
+  - tightening permissions on a single resource
+
+- **`judgment`** — the fix requires changing the spec, making a value trade-off the implementer doesn't have authority for, or making an architectural choice. Examples:
+  - the spec told the implementer to use library X but you think library Y is better → judgment (requires spec change)
+  - scope creep into new subsystems not authorized by the spec
+  - the implementer made an architectural choice (e.g., chose Redis over Postgres) that the spec left open and you disagree
+  - the design pattern used doesn't fit the rest of the codebase and changing it requires touching many files
+
+- **`uncategorized`** — only when you truly cannot tell. Avoid; classify first.
+
+**Rule of thumb:** If you can write a one-paragraph instruction that would let the implementer fix the issue without consulting a human, it's `mechanical`. If the fix requires saying "the spec says X but you should actually do Y because of reasons the spec didn't anticipate," it's `judgment`. **The IDOR / unrestricted-CORS / missing-validation class of issues is mechanical** — there's a clear right way to fix them and the implementer just needs to know to do it.
+
+**Do not over-use `judgment` to be safe.** The orchestrator's auto-fix loop (1.1.0+) now handles all `verdict: concern` cases regardless of category, but the implementer reads the category as guidance for HOW to fix. Mis-categorizing wastes a fix round.
 
 ## Output contract
 
@@ -87,8 +102,14 @@ Required fields:
 **`verdict` rules:**
 
 - `"clean"` — you inspected everything and found no concerns. This is a valid, honest verdict. Do not invent concerns to avoid it.
-- `"concern"` — you found concerns; the manifest's work is substantively done but needs iteration. The invoking skill will route by category.
-- `"blocking"` — you found something that must halt: a security issue (e.g., hard-coded secret, auth bypass), a severe scope violation, or a diff that does not implement the spec at all.
+- `"concern"` — you found concerns; the manifest's work is substantively done but needs iteration. **The implementer will get another round to address these.** Use `concern` for code-fixable issues regardless of severity.
+- `"blocking"` — you found something that **CANNOT be code-fixed** and must halt for human decision. Examples:
+  - Hard-coded secrets the implementer cannot remove without committing to a new secret-management approach the spec didn't authorize
+  - Severe scope violation: the diff implements something entirely different from the spec
+  - The diff has fundamentally wrong architectural underpinning that requires re-planning
+  - An obvious attempt to game the review (e.g., implementer flagged a test as "pre-existing failure" when it's clearly new)
+
+  **Use `blocking` sparingly.** Most security issues, including IDOR / auth bypass / unrestricted CORS / missing validation, are `concern` with `mechanical` category — they have clear code fixes. Reserve `blocking` for "needs human decision before any code change."
 
 **`concerns[]` items** (each with these fields, all required):
 

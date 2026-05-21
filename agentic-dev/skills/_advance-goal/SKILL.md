@@ -1,5 +1,5 @@
 ---
-description: Internal orchestrator step. Runs one approved goal end-to-end (implementer → gates → reviewer → routing). Handles the auto-fix loop (cap 2 rounds) for mechanical concerns. Updates queue + circuit-breaker state. Cleans up worktree on clean completion; halts circuit breaker on any blocking failure.
+description: Internal orchestrator step. Runs one approved goal end-to-end (implementer → gates → reviewer → routing). Handles the auto-fix loop (cap 3 rounds) for any reviewer concerns (mechanical OR judgment) — escalates only when verdict is blocking or auto-fix is exhausted. Updates queue + circuit-breaker state. Cleans up worktree on clean completion; halts circuit breaker on any blocking failure.
 ---
 
 # `_advance-goal` — Single-Goal Pipeline Orchestrator
@@ -123,9 +123,9 @@ Inspect the following after `_run-reviewer` returns:
 
 Reviewer returned clean. Enter the **clean path**.
 
-### B. auto-fix-queue file exists (mechanical concerns only)
+### B. auto-fix-queue file exists (any concerns — verdict was concern, not blocking)
 
-Enter the **auto-fix loop** (see below).
+Enter the **auto-fix loop** (see below). The queue may contain mechanical, judgment, or uncategorized concerns — the implementer will receive them all as guidance and attempt to address them.
 
 ### C. `_run-reviewer` exits 1
 
@@ -134,19 +134,23 @@ the escalation packet and notified via Telegram. Enter the **halt path**.
 
 ---
 
-## Auto-Fix Loop (cap 2 rounds)
+## Auto-Fix Loop (cap 3 rounds)
 
 When `.claude/agentic/auto-fix-queue/<id>.json` exists after a reviewer pass, the file
-contains a list of **mechanical concerns** (linting, formatting, naming, trivial type errors)
-that can be auto-corrected without human judgement.
+contains a list of reviewer concerns of any category (mechanical, judgment, or uncategorized).
+The implementer is dispatched again with the concerns as explicit fix guidance — categories
+are passed as informational metadata so the implementer applies the right kind of fix
+(judgment concerns get more careful treatment, mechanical concerns get straightforward
+remediation).
 
-**Hard cap:** max 2 rounds. Track rounds in a local counter starting at 0; increment before
-each auto-fix dispatch.
+**Hard cap:** max 3 rounds (bumped from 2 in 1.1.0 — judgment concerns often need an extra
+pass for the implementer to converge). Track rounds in a local counter starting at 0;
+increment before each auto-fix dispatch.
 
 ### Loop body (for each round):
 
 1. Read `.claude/agentic/auto-fix-queue/<id>.json` — parse the `concerns` array.
-2. Re-dispatch implementer with an addendum that includes the concerns:
+2. Re-dispatch implementer with an addendum that includes the concerns AND their categories:
 
    ```
    /agentic-dev:_run-implementer <spec-path>
@@ -154,10 +158,21 @@ each auto-fix dispatch.
 
    The skill must construct the dispatch prompt to include an addendum of the form:
 
-   > Address these mechanical concerns from review:
-   > 1. <concern 1 text>
-   > 2. <concern 2 text>
+   > Address these concerns from review (round <N> of 3). Categories indicate the
+   > nature of each issue — apply the appropriate kind of fix:
+   >
+   > 1. [<category>] <file>:<line> — <concern description>
+   > 2. [<category>] <file>:<line> — <concern description>
    > ...
+   >
+   > Notes:
+   > - `mechanical`: lint nits, missing tests, dead code, formatting → direct fix.
+   > - `judgment`: security flaw, scope deviation, design choice with a clear remediation
+   >   → apply the obvious fix when possible; if the fix requires changing the spec or
+   >   making a value trade-off you don't have authority for, record a
+   >   `spec_change_request` in your manifest rather than guessing.
+   > - `uncategorized`: read the description carefully and judge whether it's mechanical
+   >   or needs spec input.
 
 3. Re-run gates:
    ```
@@ -172,11 +187,11 @@ each auto-fix dispatch.
 
 5. After reviewer returns:
    - If auto-fix-queue file is absent (or empty) → **clean path** (exit loop).
-   - If reviewer exits 1 → **halt path** (exit loop).
-   - If auto-fix-queue still present and `rounds < 2` → increment `rounds`, next iteration.
-   - If `rounds == 2` and auto-fix-queue still present → escalate as `auto_fix_exhausted`.
+   - If reviewer exits 1 (verdict was blocking, OR `_run-reviewer` short-circuited because of new gate failures) → **halt path** (exit loop).
+   - If auto-fix-queue still present and `rounds < 3` → increment `rounds`, next iteration.
+   - If `rounds == 3` and auto-fix-queue still present → escalate as `auto_fix_exhausted`.
 
-### Exhaustion (rounds == 2 and still concerns):
+### Exhaustion (rounds == 3 and still concerns):
 
 Set `halted_reason = auto_fix_exhausted` and enter the **halt path**:
 
@@ -187,8 +202,8 @@ bin/circuit-breaker.sh halted \
   halted_goal_id=<id>
 ```
 
-The escalation packet should note that 2 rounds of auto-fix were attempted and the reviewer
-still found mechanical concerns. Exit 1.
+The escalation packet should note that 3 rounds of auto-fix were attempted and the reviewer
+still found unresolved concerns. Exit 1.
 
 ---
 

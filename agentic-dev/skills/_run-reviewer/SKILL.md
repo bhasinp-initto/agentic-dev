@@ -180,28 +180,36 @@ This builds the cross-session checklist that future hardened-reviewer dispatches
 For blocking verdicts: same pattern, `caught_by="reviewer"`.
 For adversary concerns (second-pass): `caught_by="adversary"`.
 
-### `verdict: "concern"` → route by category
+### `verdict: "concern"` → queue for auto-fix (regardless of category)
 
-Iterate over all concerns in the verdict. For each concern, check its `category` field.
+**Routing rule (changed in 1.1.0 — was over-strict, escalated too eagerly):**
 
-**Collect concerns by category:**
-- `mechanical` concerns → candidates for the auto-fix loop (P6 will drive this)
-- `judgment` and `uncategorized` concerns → must escalate to human
+If `verdict == "concern"`, write ALL concerns to the auto-fix queue regardless of `category`. The orchestrator's auto-fix loop (P6 `_advance-goal`) will re-dispatch the implementer with the concerns as explicit fix guidance, up to a cap of 3 rounds. The `category` field is **informational metadata** for the implementer — it tells them the NATURE of the concern (mechanical/judgment/uncategorized) but does NOT gate routing.
 
-**Decision logic:**
+The previous design double-gated: any `judgment` category → escalate. But the reviewer's `verdict` field already encodes severity. If the work needs more iteration but is code-fixable, that's `verdict: concern`. If the work is fundamentally broken and can't be code-fixed, that's `verdict: blocking`. Use `verdict` for routing; treat `category` as guidance for the implementer.
 
-If there are any `judgment` or `uncategorized` concerns (or if there are no `mechanical` concerns and all concerns escalate):
-1. Call `bin/generate-escalation.sh <goal-id> judgment_concerns`
-2. Call `bin/telegram-notify.sh warning "Goal <goal-id> has judgment concerns requiring human review"`
-   - Note: `warning` severity, not `blocking` — judgment concerns are routine, not a 2am wake-up call.
-3. Exit 1
+**What to do:**
 
-If there are ONLY `mechanical` concerns (zero judgment / uncategorized):
-1. Write the auto_fix_candidates to `.claude/agentic/auto-fix-queue/<goal-id>.json` as a JSON array of the mechanical concern objects
-2. Print: `Goal <goal-id>: <N> mechanical concerns; P6 will drive auto-fix loop`
-3. Exit 0
+1. Write the full concerns array to `.claude/agentic/auto-fix-queue/<goal-id>.json` — JSON array of all concern objects (with their category, severity, file, line, description preserved). The implementer will read this on the next round.
 
-Note: v0.5 does not yet integrate with P3's implementer for the actual auto-fix iteration — that is P6 territory.
+2. Optionally call `bin/log-incident.sh checklist ...` once per judgment-category concern for cross-session learning (`caught_by: reviewer`). Failure is non-blocking (P7-L4); log and continue.
+
+3. Print:
+   ```
+   Goal <goal-id>: <N> concerns queued for auto-fix loop
+     <count> mechanical, <count> judgment, <count> uncategorized
+   ```
+
+4. Exit 0.
+
+The orchestrator's `_advance-goal` skill reads the auto-fix-queue file and either dispatches another implementer round (if under cap) or escalates as `auto_fix_exhausted` (if cap reached).
+
+**Why this is safe:**
+
+- `verdict: blocking` is the reviewer's explicit "halt now" signal — it short-circuits to escalation (see below).
+- The implementer will see the categorized concerns and apply judgment-aware fixes; if a concern truly requires a spec change, the implementer should record a `spec_change_request` in its new manifest, which itself surfaces as a different kind of escalation.
+- The cap (3 rounds) prevents infinite loops if the implementer can't converge.
+- For genuinely architectural decisions, the reviewer should mark `verdict: blocking` — that escalates immediately.
 
 ---
 
