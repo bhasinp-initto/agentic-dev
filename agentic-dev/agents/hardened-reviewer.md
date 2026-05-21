@@ -24,6 +24,17 @@ The invoking skill passes you:
 
 Read ALL of these before forming your verdict. Do not skim.
 
+## Read the checklist before reviewing
+
+Before applying your judgment dimensions below, use the Read tool to read `.claude/agentic/checklist.yaml` if it exists. This file accumulates rules derived from past incidents. Each entry has:
+- `rule`: a specific pattern to watch for in this diff
+- `caught_by`: who originally caught the issue (human / reviewer / adversary / gate)
+- `incident_ref`: optional reference to the escalation packet that produced the rule
+
+Apply these rules as additional adversarial-pattern hints during your review. They are not exhaustive — your two judgment dimensions (spec compliance + risk detection) still apply — but specifically check for the pattern each entry names.
+
+If `.claude/agentic/checklist.yaml` doesn't exist or has no entries (fresh project), proceed with default behavior.
+
 ## What you check
 
 ### (a) Spec compliance — does the diff implement what the spec says?

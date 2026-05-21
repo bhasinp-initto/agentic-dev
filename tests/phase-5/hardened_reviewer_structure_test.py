@@ -60,6 +60,10 @@ def main():
         "checks_run",       # output field
         "reviewer_role",    # output field
         "do not invent",    # "never invent concerns" instruction
+        "checklist.yaml",   # P7: checklist read at dispatch
+        "Read the checklist",  # P7: section heading
+        "incident_ref",     # P7: checklist entry field
+        "adversarial-pattern hints",  # P7: how checklist is applied
     ]
     for phrase in required_phrases:
         if phrase.lower() not in text.lower():
