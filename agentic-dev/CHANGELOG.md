@@ -3,6 +3,53 @@
 All notable changes to `agentic-dev` are documented here.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.0.0] — 2026-05-21
+
+**v1.0** — the full three-role agentic development pattern is complete and shippable.
+
+### The complete arc (P1 through P8)
+
+`agentic-dev` is a Claude Code plugin that automates the three-role development pattern: a human (Role 1) provides direction, two distinct AI subagent roles (drafter, hardened-reviewer) cooperate with an implementer subagent (Role 3) under deterministic gates, escalating to the human only when quality demands it. Designed for overnight autonomous progress on architecturally substantive work where quality is the prime concern.
+
+### Phase summary
+
+- **v0.1 (P1)** — Plugin scaffold + `/agentic-dev:init` + `/agentic-dev:status`
+- **v0.2 (P2)** — Spec drafter + `/agentic-dev:intent` + AI validator (`_check-approval`)
+- **v0.3 (P3)** — Implementer subagent (`implementer-strict`) + worktree-per-goal isolation + `_run-implementer`
+- **v0.4 (P4)** — Six deterministic gates (scope, budget, sensitive-path, test-count, rerun-tests, bisect-on-claim) + `_run-gates`
+- **v0.5 (P5)** — Hardened reviewer + reviewer-adversary + escalation packets + Telegram (placeholder config) + `_run-reviewer`
+- **v0.6 (P6)** — Autonomous orchestrator (`_run-orchestrator`, `_advance-goal`) + public `/agentic-dev:start` and `/agentic-dev:resume` + auto-fix loop (cap 2 rounds) + ScheduleWakeup-driven overnight progression
+- **v0.7 (P7)** — Cross-session memory: checklist + memory YAMLs, auto-append on incidents, subagent prompts read both at dispatch
+- **v1.0 (P8)** — Marketplace polish + CLAUDE.md template + final regression
+
+### Added in v1.0 (P8)
+- `agentic-dev/templates/CLAUDE.md` — starter file for host projects, surfaces workflow context to future Claude Code sessions.
+- `tests/phase-8/marketplace_smoke_test.sh` — structural validation of the marketplace catalog + optional plugin-load smoke (gated behind AGENTIC_E2E=1).
+- `tests/phase-8/run_all.sh` — phase 8 aggregator.
+
+### Public skills (cumulative — all available in v1.0)
+
+| Skill | Purpose |
+|---|---|
+| `/agentic-dev:init` | Bootstrap `.claude/agentic/` in a host project. |
+| `/agentic-dev:status` | Show current queue, circuit-breaker state, config summary. |
+| `/agentic-dev:intent <text>` | Draft a structured spec for a new goal. |
+| `/agentic-dev:intent --refine <spec-path>` | Re-run the drafter on a partial spec. |
+| `/agentic-dev:_check-approval <spec-path>` | Run AI validator on an approved spec. |
+| `/agentic-dev:start [--until ...]` | Begin the autonomous queue run. |
+| `/agentic-dev:resume <decision>` | After halt: resume / skip / address / replan / abort. |
+
+Internal lifecycle skills (`_run-implementer`, `_run-gates`, `_run-reviewer`, `_run-orchestrator`, `_advance-goal`) are invoked by the orchestrator; users can invoke them directly for testing or debugging.
+
+### Cost / quality discipline established
+- `docs/superpowers/test-cost-policy.md` codifies three test classes (deterministic, agent-dispatched, claude -p) with default-deterministic discipline.
+- Total project dev cost: ~$110 across all 8 phases (~$100 spent in P1+P2 before the cost policy; ~$10 across P3-P8 combined under the policy).
+- Subagent-driven-development pattern with two-stage review (spec + code quality) per task held throughout — caught numerous real bugs.
+
+### Notes
+- v1.0 is local-only by default. To distribute publicly, add the GitHub remote (e.g., `Pankaj-Bhasin/agenticDev`) and push.
+- DEFERRED.md tracks items not addressed in P1-P8 (drafter-running-ahead, cross-model reviewer, walkthrough integration, multi-developer support). Post-v1 work.
+
 ## [0.7.0] — 2026-05-21
 
 Cross-session memory + auto-learning. The system now adapts to past incidents in this project without manual curation.

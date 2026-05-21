@@ -1,90 +1,185 @@
 # agentic-dev
 
-A Claude Code plugin that automates the three-role development pattern: a hardened agentic loop that implements, reviews, and escalates to the human only when quality requires it.
+A Claude Code plugin that automates the **three-role development pattern**: a human (Role 1) directs, two AI subagent roles (spec drafter + hardened reviewer) cooperate with an implementer subagent (Role 3) under deterministic gates, escalating to the human only when quality demands it. Designed for **overnight autonomous progress on architecturally substantive work where quality is the prime concern**.
 
-This is **v0.7** — the system is self-improving. Reviewer concerns auto-append to `.claude/agentic/checklist.yaml`; orchestrator halts auto-append to `.claude/agentic/memory.yaml`. Future drafter and reviewer dispatches read these files and adapt — the system gets harder to fool each cycle. You can prune/edit the YAMLs manually anytime. Marketplace polish (P8) is the last phase.
+This is **v1.0** — the complete pipeline ships: intent capture → spec drafting → approval (with AI validator) → implementation in dedicated git worktrees with TDD discipline → deterministic verification gates → AI reviewer with adversarial second pass → human escalation only when needed.
 
-See `docs/superpowers/specs/2026-05-20-three-role-agentic-pattern-design.md` in the source repository for the full design.
+See `docs/superpowers/specs/2026-05-20-three-role-agentic-pattern-design.md` (umbrella design doc) for the full design rationale.
 
-## Install
+## Quickstart
 
-From a Claude Code session:
-
-```
+```bash
+# 1. Install (in any Claude Code session)
 /plugin marketplace add Pankaj-Bhasin/agenticDev
 /plugin install agentic-dev
+
+# 2. Bootstrap a host project
+cd ~/my-project
+/agentic-dev:init      # creates .claude/agentic/ with config, queue, state
+
+# 3. Draft a goal
+/agentic-dev:intent "Add per-tenant rate limiting to the API"
+# → spec drafter creates a markdown spec with QUESTION-N blocks for every
+#   architectural decision. Open the spec, answer the questions in place.
+
+# 4. Approve the spec
+# Edit the spec frontmatter: approved: true
+# Save. The validator runs automatically.
+/agentic-dev:_check-approval .claude/agentic/specs/<id>.md
+# AI validator either confirms clean or adds new QUESTION-N blocks for concerns.
+
+# 5. Run the queue
+/agentic-dev:start --until 07:00   # overnight progress; halt at 7am or on issue
 ```
 
-## Bootstrap a host project
-
-In any project where you want to use the agentic loop:
+## Workflow overview
 
 ```
-/agentic-dev:init
+   Human                       Plugin                       Claude Code
+     │                           │                              │
+     │ /agentic-dev:intent ─────►│  spec-drafter (subagent)     │
+     │                           │  ─ QUESTION-N blocks in spec │
+     │ answer questions, set    │                              │
+     │ approved: true ──────────►│  _check-approval             │
+     │                           │  ─ AI validator              │
+     │                           │  ─ writes new QUESTIONs or   │
+     │                           │    confirms clean            │
+     │                           │                              │
+     │ /agentic-dev:start ──────►│  _run-orchestrator (LOOP)    │
+     │                           │   ├─ _advance-goal           │
+     │                           │   │  ├─ _run-implementer     │
+     │                           │   │  │  ├─ worktree-init     │
+     │                           │   │  │  └─ implementer-strict│
+     │                           │   │  ├─ _run-gates           │
+     │                           │   │  │  └─ 6 gate scripts    │
+     │                           │   │  ├─ _run-reviewer        │
+     │                           │   │  │  ├─ hardened-reviewer │
+     │                           │   │  │  └─ reviewer-adversary│
+     │                           │   │  └─ route concerns       │
+     │                           │   │     ├─ mechanical: loop  │
+     │                           │   │     │  (cap 2 rounds)    │
+     │                           │   │     ├─ judgment: escalate│
+     │                           │   │     └─ clean: cleanup +  │
+     │                           │   │        advance to next   │
+     │ Telegram push ◄───────────┤  ─ escalation packet         │
+     │ (or notifications-log)    │   ─ circuit-breaker halted   │
+     │                           │                              │
+     │ /agentic-dev:resume ─────►│   ─ resume|skip|address|     │
+     │   <decision>              │     replan|abort             │
 ```
-
-This creates a `.claude/agentic/` directory with the state tree, prompts for project-specific configuration (test/lint commands, Telegram chat id, budget defaults), and writes a starter `config.yaml`.
-
-## Inspect current state
-
-```
-/agentic-dev:status
-```
-
-Reports the current queue, circuit-breaker state, and recent activity.
 
 ## Skills shipped
 
-### v0.1
-- `/agentic-dev:init` — bootstrap `.claude/agentic/` in the current project
-- `/agentic-dev:status` — show current state
+| Skill | Purpose |
+|---|---|
+| **`/agentic-dev:init`** | Bootstrap `.claude/agentic/` in the current project. |
+| **`/agentic-dev:status`** | Show current queue, circuit-breaker state, configuration summary. |
+| **`/agentic-dev:intent <text>`** | Draft a structured spec for a new goal. |
+| **`/agentic-dev:intent --refine <spec-path>`** | Re-run the drafter on a partially-answered spec; preserves existing answers. |
+| **`/agentic-dev:_check-approval <spec-path>`** | Run the AI validator on an approved spec. |
+| **`/agentic-dev:start [--until HH:MM\|Nm\|Nh]`** | Begin the autonomous queue run. |
+| **`/agentic-dev:resume <decision> [args]`** | After a halt, decide: `resume | skip | address <text> | replan | abort`. |
 
-### v0.2
-- `/agentic-dev:intent <free-form goal>` — draft a structured spec for a new goal. Produces an intent file and a spec file with explicit QUESTION-N blocks at every architectural decision.
-- `/agentic-dev:intent --refine <spec-path>` — re-run the drafter on a partially-answered spec. Preserves existing answers; may add new questions if answers exposed ambiguities.
-- `/agentic-dev:_check-approval <spec-path>` — run the AI validator on an approved spec. Two checks: measurability of completion criteria, scope coherence with the intent. Concerns are written back into the spec as new QUESTION-N blocks (no silent rejection); `approved` reverts to `false`.
+Internal lifecycle skills (`_run-implementer`, `_run-gates`, `_run-reviewer`, `_run-orchestrator`, `_advance-goal`) are invoked by the orchestrator. You can invoke them directly for testing or debugging.
 
-### v0.3
-- `/agentic-dev:_run-implementer <spec-path>` — internal lifecycle skill. Creates a dedicated git worktree at `.worktrees/goal-<id>/`, dispatches the `implementer-strict` subagent to write code against the approved spec following TDD discipline, captures a structured completion manifest, and generates a structured diff envelope. Not intended for routine human invocation; called by the orchestrator (P6) or by test scaffolding.
+## Configuration
 
-### v0.4
-- `/agentic-dev:_run-gates <goal-id>` — internal lifecycle skill. Runs six deterministic verification gates on a completed goal's manifest: scope (no out-of-spec file edits), budget (diff/files within declared budget), sensitive-path (no auth/migrations/etc. touched), test-count (no tests deleted vs baseline), rerun-tests (manifest's test counts match independent re-run), bisect-on-claim (any "pre-existing failure" deferral is verified by re-running the test on the baseline ref). Writes a per-goal verdict file. Halts on first blocking failure.
-- `bin/migrate-v0.1-to-v0.2.sh` (shipped in v0.3) — one-shot idempotent migration for existing queue.yaml files.
+`.claude/agentic/config.yaml` (created by `/agentic-dev:init`):
 
-### v0.5
-- `/agentic-dev:_run-reviewer <goal-id>` — internal lifecycle skill. Dispatches the `hardened-reviewer` subagent (read-only, adversarial) on a goal that passed P4's gates. Runs `reviewer-adversary` as a second pass on clean verdicts. Routes concerns by category — mechanical concerns become an auto-fix queue entry (P6 drives the loop), judgment/uncategorized concerns trigger an escalation packet + Telegram notification.
-- Telegram notification helper at `bin/telegram-notify.sh` with placeholder-config mode. To enable real notifications, set `telegram.bot_token` and `telegram.chat_id` in `.claude/agentic/config.yaml`. Otherwise all notifications log to `.claude/agentic/notifications-log.txt` and the pipeline continues unaffected.
+```yaml
+schema_version: "0.1"
+project:
+  name: my-project
+  primary_language: python
+commands:
+  test: "pytest -q"
+  lint: "ruff check ."
+  typecheck: "mypy ."
+  build: null
+budgets:
+  wall_clock_minutes_per_goal: 90
+  diff_lines_per_goal: 800
+  files_touched_per_goal: 25
+sensitive_paths:
+  - "auth/**"
+  - "migrations/**"
+  - "schema/**"
+  - "secrets/**"
+  - "payments/**"
+  - "infra/**"
+telegram: null          # or { bot_token: "...", chat_id: <id> }
+push_policy: hold       # 'hold' = human pushes; 'auto' = orchestrator pushes
+```
 
-### v0.6
-- `/agentic-dev:start [--until HH:MM | Nm | Nh]` — **public entry point**. Begin a queue run. The orchestrator advances goals one by one (implementer → gates → reviewer → routing). Optional `--until` argument sets a wall-clock cutoff.
-- `/agentic-dev:resume <decision>` — **public after-halt entry**. Decisions: `resume | skip | address | replan | abort`. Logs to `.claude/agentic/decisions.log`.
-- `/agentic-dev:_advance-goal <id>` — internal single-goal pipeline pass. Handles the auto-fix loop (cap 2 rounds) for mechanical concerns.
-- `/agentic-dev:_run-orchestrator` — internal queue-loop driver. Uses ScheduleWakeup to progress overnight.
-- State transition helpers: `bin/queue-set-status.sh`, `bin/circuit-breaker.sh`, `bin/cleanup-completed-goal.sh` — atomic, schema-validated updates to queue.yaml and state.json.
+### Telegram notifications
 
-### v0.7
-- `bin/log-incident.sh checklist|memory <key=value>...` — appends an entry to either `.claude/agentic/checklist.yaml` (reviewer-pattern rules from past incidents) or `.claude/agentic/memory.yaml` (orchestrator observations from halts). Auto-invoked from `_run-reviewer` (judgment concerns) and `_advance-goal` (halts).
-- Subagents read these files at dispatch: `spec-drafter` reads memory.yaml; `hardened-reviewer` and `reviewer-adversary` read checklist.yaml. Their behavior adapts based on accumulated project-specific incidents.
-- Files are append-only — humans curate by editing the YAML directly.
+Set `telegram` to enable real notifications:
+```yaml
+telegram:
+  bot_token: "<bot-token-from-BotFather>"
+  chat_id: <your-chat-id>
+```
 
-## What's coming next
+Without configured Telegram, notifications log to `.claude/agentic/notifications-log.txt`. The pipeline never blocks on notification failures.
 
-P8 (final): marketplace polish — versioned distribution via `/plugin marketplace add`, community submission prep, final v1.0 README + CHANGELOG.
+## State files
+
+| File | Purpose |
+|---|---|
+| `.claude/agentic/state.json` | Orchestrator state + circuit breaker (idle / running / halted / completed). |
+| `.claude/agentic/queue.yaml` | Goal queue (per-goal status, paths to spec/manifest/diff/worktree). |
+| `.claude/agentic/config.yaml` | Per-project config. |
+| `.claude/agentic/intents/<id>.md` | Human-written intent (input to drafter). |
+| `.claude/agentic/specs/<id>.md` | Structured spec (drafter output; human approves). |
+| `.claude/agentic/manifests/<id>.json` | Implementer completion manifest. |
+| `.claude/agentic/diffs/<id>.json` | Structured git-diff envelope. |
+| `.claude/agentic/verdicts/<id>.json` | Deterministic-gate verdict. |
+| `.claude/agentic/reviewer-verdicts/<id>.json` | AI reviewer verdict. |
+| `.claude/agentic/escalations/<timestamp>-<id>.md` | Human-readable escalation packets. |
+| `.claude/agentic/checklist.yaml` | Cross-session reviewer-pattern rules (append-only). |
+| `.claude/agentic/memory.yaml` | Cross-session orchestrator observations (append-only). |
+| `.claude/agentic/decisions.log` | Human-reset decisions audit trail. |
+| `.worktrees/goal-<id>/` | Per-goal git worktree (created by implementer; cleaned on success). |
+
+## CLAUDE.md template
+
+For host projects, `agentic-dev/templates/CLAUDE.md` is a starter you can copy to your project's `.claude/CLAUDE.md` (or merge into existing). It surfaces the agentic-dev workflow to future Claude Code sessions, including reminders not to bypass the workflow for substantive changes.
+
+## Troubleshooting
+
+| Symptom | Likely Cause | Fix |
+|---|---|---|
+| `agentic-dev: not initialized` | No `.claude/agentic/` in project | Run `/agentic-dev:init` |
+| `spec validation failed: unresolved QUESTION blocks` | Setting `approved: true` while QUESTION-N markers remain | Answer them or set `approved: false` |
+| `Credit balance is too low` from `claude -p` tests | API account out of credits | Top up at https://console.anthropic.com/settings/billing, or run only deterministic tests (default in `run_all.sh`) |
+| Orchestrator halted unexpectedly | Reviewer or gate flagged a blocking issue | Read the escalation packet in `.claude/agentic/escalations/`, then `/agentic-dev:resume <decision>` |
+| Worktree not cleaned after success | Manual fix: `bin/worktree-cleanup.sh <goal-id>` | (Usually the orchestrator cleans automatically) |
 
 ## Development
 
-Source repository: https://github.com/Pankaj-Bhasin/agenticDev
-
-To run the test suite from the source repo:
+Source repo: this directory (or wherever you cloned `agentic-dev` from).
 
 ```bash
+# Run the full deterministic test suite (no API cost)
 bash tests/phase-1/run_all.sh
+bash tests/phase-2/run_all.sh
+bash tests/phase-3/run_all.sh
+bash tests/phase-4/run_all.sh
+bash tests/phase-5/run_all.sh
+bash tests/phase-6/run_all.sh
+bash tests/phase-7/run_all.sh
+bash tests/phase-8/run_all.sh
+
+# Run end-to-end tests that invoke `claude -p` (uses API credits)
+AGENTIC_E2E=1 bash tests/phase-2/run_e2e.sh
 ```
 
-Design and architecture:
-- `docs/superpowers/specs/2026-05-20-three-role-agentic-pattern-design.md` — full design
-- `docs/superpowers/plans/2026-05-20-agentic-dev-phase-1-plugin-skeleton.md` — Phase 1 implementation plan
+Design docs:
+- `docs/superpowers/specs/2026-05-20-three-role-agentic-pattern-design.md` — umbrella design
+- `docs/superpowers/specs/2026-05-21-agentic-dev-phase-N-*-design.md` — per-phase designs
+- `docs/superpowers/plans/2026-05-2N-agentic-dev-phase-N-*.md` — per-phase implementation plans
+- `docs/superpowers/test-cost-policy.md` — test cost discipline
 
 ## Changelog
 
-See `agentic-dev/CHANGELOG.md`.
+See [CHANGELOG.md](CHANGELOG.md).
