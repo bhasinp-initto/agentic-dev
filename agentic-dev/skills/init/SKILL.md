@@ -139,7 +139,15 @@ For `project.name`, use the current directory basename as the default; only ask 
 
 For `sensitive_paths`, do not prompt — use the defaults. Tell the user they can edit `.claude/agentic/config.yaml` later to add project-specific sensitive paths.
 
-For `telegram`, do not prompt during init. Inform the user that Telegram setup is done later via a future skill (`/agentic-dev:configure-telegram`, not in v0.1).
+For `telegram`, do not prompt during init. Inform the user that Telegram notifications are opt-in: leave the `telegram` field as `null` in `.claude/agentic/config.yaml` (the default) and notifications log to `.claude/agentic/notifications-log.txt`. To enable real Telegram pushes, edit `.claude/agentic/config.yaml` and set:
+
+```yaml
+telegram:
+  bot_token: "<bot-token-from-BotFather>"
+  chat_id: <chat-id-from-getIDsBot-or-similar>
+```
+
+The pipeline never blocks on notification failures regardless of configuration.
 
 ## Output
 
