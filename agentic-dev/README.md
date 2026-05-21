@@ -33,14 +33,20 @@ This creates a `.claude/agentic/` directory with the state tree, prompts for pro
 
 Reports the current queue, circuit-breaker state, and recent activity.
 
-## Skills shipped in v0.1
+## Skills shipped
 
+### v0.1
 - `/agentic-dev:init` — bootstrap `.claude/agentic/` in the current project
 - `/agentic-dev:status` — show current state
 
+### v0.2
+- `/agentic-dev:intent <free-form goal>` — draft a structured spec for a new goal. Produces an intent file and a spec file with explicit QUESTION-N blocks at every architectural decision.
+- `/agentic-dev:intent --refine <spec-path>` — re-run the drafter on a partially-answered spec. Preserves existing answers; may add new questions if answers exposed ambiguities.
+- `/agentic-dev:_check-approval <spec-path>` — run the AI validator on an approved spec. Two checks: measurability of completion criteria, scope coherence with the intent. Concerns are written back into the spec as new QUESTION-N blocks (no silent rejection); `approved` reverts to `false`.
+
 ## What's coming next
 
-See repo issues / phase plans for P2 onward: spec drafter, implementer, hardened reviewer, deterministic gates, overnight queue, escalation.
+See repo issues / phase plans for P3 onward: implementer subagent with worktree isolation (P3), deterministic gates and hook wiring for scope/budget/sensitive-paths (P4), hardened reviewer + Telegram notifications (P5), overnight queue + circuit breaker (P6), cross-session memory (P7), marketplace polish + community submission (P8).
 
 ## Development
 
