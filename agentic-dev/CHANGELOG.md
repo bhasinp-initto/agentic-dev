@@ -3,6 +3,23 @@
 All notable changes to `agentic-dev` are documented here.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [0.7.0] — 2026-05-21
+
+Cross-session memory + auto-learning. The system now adapts to past incidents in this project without manual curation.
+
+### Added
+- `schemas/checklist.schema.json` — `.claude/agentic/checklist.yaml` shape (reviewer-pattern rules with date, incident_ref, rule, caught_by).
+- `schemas/memory.schema.json` — `.claude/agentic/memory.yaml` shape (observations with date, observation, consequence).
+- `bin/log-incident.sh` — append-only helper. Validates type (checklist|memory), required keys per type, auto-populates date, schema-validates before write, atomic.
+- Subagent prompt modifications: `hardened-reviewer`, `reviewer-adversary` read checklist.yaml at dispatch; `spec-drafter` reads memory.yaml. All gracefully handle empty/missing files.
+- Skill modifications: `_run-reviewer` auto-appends checklist entries for judgment/uncategorized/blocking concerns before escalation; `_advance-goal` auto-appends memory entry on the halt path.
+- `tests/phase-7/` — 3 deterministic test files (schemas + log-incident). Zero claude -p.
+
+### Notes
+- Auto-append failures (schema validation, file lock, etc.) log to validation-log.txt and continue — never block the pipeline (P7-L4).
+- Humans can prune/edit checklist.yaml and memory.yaml at any time using a text editor. The system reads whatever's there.
+- P7 dev cost: <$1 API credits.
+
 ## [0.6.0] — 2026-05-21
 
 The autonomous orchestrator ships. After approving specs, run `/agentic-dev:start` and the system processes the queue end-to-end: implementer writes code in worktree → gates verify → reviewer checks → auto-fix loop for mechanical concerns → escalation on judgment concerns → next goal. Halts are circuit-breaker-locked until human resumes.

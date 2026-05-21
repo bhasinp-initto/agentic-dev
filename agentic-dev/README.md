@@ -2,7 +2,7 @@
 
 A Claude Code plugin that automates the three-role development pattern: a hardened agentic loop that implements, reviews, and escalates to the human only when quality requires it.
 
-This is **v0.6** — the autonomous orchestrator is alive. `/agentic-dev:start` runs the approved-goals queue end-to-end (implementer → gates → reviewer → routing). Auto-fix loop handles mechanical concerns (cap 2 rounds). Halt-on-blocking + circuit breaker. Overnight progression via ScheduleWakeup. `/agentic-dev:resume` is the after-halt human entry point. Cross-session memory (P7) and marketplace polish (P8) follow.
+This is **v0.7** — the system is self-improving. Reviewer concerns auto-append to `.claude/agentic/checklist.yaml`; orchestrator halts auto-append to `.claude/agentic/memory.yaml`. Future drafter and reviewer dispatches read these files and adapt — the system gets harder to fool each cycle. You can prune/edit the YAMLs manually anytime. Marketplace polish (P8) is the last phase.
 
 See `docs/superpowers/specs/2026-05-20-three-role-agentic-pattern-design.md` in the source repository for the full design.
 
@@ -62,9 +62,14 @@ Reports the current queue, circuit-breaker state, and recent activity.
 - `/agentic-dev:_run-orchestrator` — internal queue-loop driver. Uses ScheduleWakeup to progress overnight.
 - State transition helpers: `bin/queue-set-status.sh`, `bin/circuit-breaker.sh`, `bin/cleanup-completed-goal.sh` — atomic, schema-validated updates to queue.yaml and state.json.
 
+### v0.7
+- `bin/log-incident.sh checklist|memory <key=value>...` — appends an entry to either `.claude/agentic/checklist.yaml` (reviewer-pattern rules from past incidents) or `.claude/agentic/memory.yaml` (orchestrator observations from halts). Auto-invoked from `_run-reviewer` (judgment concerns) and `_advance-goal` (halts).
+- Subagents read these files at dispatch: `spec-drafter` reads memory.yaml; `hardened-reviewer` and `reviewer-adversary` read checklist.yaml. Their behavior adapts based on accumulated project-specific incidents.
+- Files are append-only — humans curate by editing the YAML directly.
+
 ## What's coming next
 
-See repo issues / phase plans for P7 onward: cross-session memory + auto-learning from incidents (P7), marketplace polish + community submission (P8).
+P8 (final): marketplace polish — versioned distribution via `/plugin marketplace add`, community submission prep, final v1.0 README + CHANGELOG.
 
 ## Development
 
