@@ -88,19 +88,108 @@ budget = {
 # worktree. So we pass an absolute path so the implementer can read it.
 abs_spec_path = os.path.abspath(spec_path)
 
+project_commands = {
+    "test": cfg["commands"]["test"],
+    "lint": cfg["commands"]["lint"],
+    "typecheck": cfg["commands"].get("typecheck"),
+    "build": cfg["commands"].get("build"),
+}
+
+# Capture baseline test counts by running the test command on the baseline state.
+# The worktree is already at baseline_ref (created from HEAD above).
+baseline_test_counts = None
+test_cmd = project_commands.get("test")
+if test_cmd:
+    import subprocess, re
+    try:
+        proc = subprocess.run(
+            test_cmd,
+            shell=True,
+            capture_output=True,
+            text=True,
+            cwd=worktree_abs,
+            timeout=120,
+        )
+        output = proc.stdout + "\n" + proc.stderr
+
+        passed_n = failed_n = skipped_n = None
+
+        # jest / mocha: "Tests:   3 passed, 0 failed"
+        m = re.search(r'Tests?:\s+(\d+)\s+passed', output, re.IGNORECASE)
+        if m:
+            passed_n = int(m.group(1))
+        m2 = re.search(r'Tests?:.*?(\d+)\s+failing', output, re.IGNORECASE)
+        if m2:
+            failed_n = int(m2.group(1))
+        else:
+            m2b = re.search(r'(\d+)\s+failing', output, re.IGNORECASE)
+            if m2b:
+                failed_n = int(m2b.group(1))
+
+        # pytest: "== 3 passed, 0 failed ==" or "=== 3 passed ==="
+        if passed_n is None:
+            m = re.search(r'={3,}\s*(\d+)\s+passed', output, re.IGNORECASE)
+            if m:
+                passed_n = int(m.group(1))
+        if failed_n is None:
+            m = re.search(r'={3,}.*?(\d+)\s+failed', output, re.IGNORECASE)
+            if m:
+                failed_n = int(m.group(1))
+
+        # Generic: "N passed" / "N failed"
+        if passed_n is None:
+            m = re.search(r'(\d+)\s+passed', output, re.IGNORECASE)
+            if m:
+                passed_n = int(m.group(1))
+        if failed_n is None:
+            m = re.search(r'(\d+)\s+failed', output, re.IGNORECASE)
+            if m:
+                failed_n = int(m.group(1))
+
+        # Generic fallback: count lines matching ^(PASS|FAIL|ok)
+        if passed_n is None:
+            pass_lines = [l for l in output.splitlines() if re.match(r'^(PASS|ok)\b', l.strip())]
+            fail_lines = [l for l in output.splitlines() if re.match(r'^FAIL\b', l.strip())]
+            if pass_lines or fail_lines:
+                passed_n = len(pass_lines)
+                failed_n = len(fail_lines)
+
+        # skipped
+        skipped_n = 0
+        m = re.search(r'(\d+)\s+skipped', output, re.IGNORECASE)
+        if m:
+            skipped_n = int(m.group(1))
+
+        if passed_n is not None:
+            baseline_test_counts = {
+                "passed": passed_n,
+                "failed": failed_n if failed_n is not None else 0,
+                "skipped": skipped_n,
+            }
+        else:
+            import sys as _sys
+            print(
+                f"WARNING: worktree-init: could not parse test counts from output of: {test_cmd}",
+                file=_sys.stderr,
+            )
+    except Exception as exc:
+        import sys as _sys
+        print(
+            f"WARNING: worktree-init: baseline test run failed: {exc}",
+            file=_sys.stderr,
+        )
+
 kickoff = {
     "goal_id": goal_id,
     "spec_path": abs_spec_path,
     "baseline_ref": baseline_ref,
     "budget": budget,
     "sensitive_paths": cfg["sensitive_paths"],
-    "project_commands": {
-        "test": cfg["commands"]["test"],
-        "lint": cfg["commands"]["lint"],
-        "typecheck": cfg["commands"].get("typecheck"),
-        "build": cfg["commands"].get("build"),
-    },
+    "project_commands": project_commands,
     "worktree_path": worktree_abs,
+    "baseline": {
+        "test_counts": baseline_test_counts,
+    },
 }
 
 with open(os.path.join(worktree_abs, ".agentic-kickoff.json"), "w") as f:

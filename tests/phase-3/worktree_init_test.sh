@@ -92,7 +92,7 @@ echo "PASS kickoff file created"
 python3 <<PY
 import json
 k = json.load(open("$KICKOFF"))
-required = ["goal_id", "spec_path", "baseline_ref", "budget", "sensitive_paths", "project_commands"]
+required = ["goal_id", "spec_path", "baseline_ref", "budget", "sensitive_paths", "project_commands", "baseline"]
 missing = [r for r in required if r not in k]
 if missing:
     print(f"FAIL: kickoff missing fields: {missing}")
