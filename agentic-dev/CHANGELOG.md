@@ -3,6 +3,36 @@
 All notable changes to `agentic-dev` are documented here.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [0.5.0] — 2026-05-21
+
+AI judgment layer ships. After gates pass, the hardened reviewer reads spec + manifest + diff envelope and returns a structured verdict; clean verdicts get a second-pass adversary check; concerns routed by category. Escalation packets and Telegram notifications (placeholder-friendly) complete the human-in-the-loop signal path.
+
+### Added
+- `agents/hardened-reviewer.md` — read-only AI reviewer subagent with adversarial framing. Two judgment dimensions: spec compliance + risk detection. Concerns categorized as mechanical | judgment | uncategorized (uncategorized defaults to judgment per umbrella §8).
+- `agents/reviewer-adversary.md` — second-pass adversary subagent on otherwise-clean reviews.
+- `schemas/reviewer-verdict.schema.json` — structured AI verdict (verdict enum, concerns[], checks_run[]).
+- `schemas/escalation-packet.schema.json` — structured escalation file (trigger enum, concerns, paths to manifest/verdict/diff/spec, suggested_next_actions).
+- `bin/telegram-notify.sh` — severity-tiered Telegram helper. Placeholder mode (no config) logs to `notifications-log.txt`; configured mode POSTs to Telegram Bot API with graceful failure. Always exits 0 (notifications are advisory).
+- `bin/generate-escalation.sh` — escalation packet generator. Builds packet from manifest + reviewer-verdict + gate-verdict (any available); validates against schema; writes timestamped markdown with YAML frontmatter to `.claude/agentic/escalations/`.
+- `skills/_run-reviewer/SKILL.md` — internal lifecycle skill. Short-circuits to escalation on gate_failure. Otherwise dispatches hardened-reviewer; runs adversary on clean; routes concerns; writes auto_fix_candidates to `.claude/agentic/auto-fix-queue/` (mechanical) or generates escalation + notification (judgment/blocking).
+- `tests/phase-5/` — 7 deterministic test files covering schemas, subagent structures, helper scripts, and skill structure. Zero claude -p.
+
+### Configuration
+
+To enable real Telegram notifications, edit `.claude/agentic/config.yaml`:
+
+```yaml
+telegram:
+  bot_token: "<your-bot-token>"
+  chat_id: <your-chat-id>
+```
+
+Without this, all notifications log to `.claude/agentic/notifications-log.txt`. The pipeline never blocks on notification failures.
+
+### Notes
+- v0.5 doesn't yet drive the auto-fix loop end-to-end — `_run-reviewer` captures mechanical concerns into an auto-fix-queue file; P6's orchestrator reads this and re-dispatches the implementer.
+- P5 dev cost: <$1 in API credits (deterministic-first per cost policy; one optional controller-driven agent-dispatch smoke at T6).
+
 ## [0.4.0] — 2026-05-21
 
 Deterministic verification gates ship. The implementer's manifest claims (scope, budget, test counts) are now checked independently against actual worktree state. No AI in this layer — that's P5.
