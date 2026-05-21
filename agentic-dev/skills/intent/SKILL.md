@@ -1,5 +1,5 @@
 ---
-description: User entry point for drafting a new spec. Records the raw intent text, dispatches the spec-drafter subagent to produce a structured draft, writes the draft to disk. v0.2 supports only the fresh path; --refine ships in v0.2.x.
+description: User entry point for drafting a new spec. Records the raw intent text, dispatches the spec-drafter subagent to produce a structured draft, writes the draft to disk. v0.2 supports fresh path and --refine mode.
 ---
 
 # /agentic-dev:intent
@@ -9,6 +9,28 @@ You are the user entry point for drafting a new agentic-dev spec.
 ## How to interpret `$ARGUMENTS`
 
 `$ARGUMENTS` is the free-form intent text describing what work the user wants to specify. It should be a single coherent goal in 1–3 sentences. If it's empty, refuse with: `agentic-dev: /agentic-dev:intent requires a free-form goal description. Example: /agentic-dev:intent "Add rate limiting per-tenant"`.
+
+## --refine mode
+
+If `$ARGUMENTS` begins with `--refine ` (a literal `--refine` followed by a space), this is refine mode.
+
+Parse the remaining text as a spec file path. If the path:
+- Does not exist → print `agentic-dev: --refine target does not exist: <path>` and exit.
+- Does not match `.claude/agentic/specs/*.md` → print `agentic-dev: --refine target must be a spec file under .claude/agentic/specs/` and exit.
+- Has `approved: true` in its frontmatter → print `agentic-dev: cannot --refine an approved spec; set approved: false first if you want to re-open it` and exit.
+
+Otherwise:
+
+1. Read the current spec file in full.
+2. Parse it: extract the existing frontmatter, the sections, and the existing QUESTION-N blocks (both answered and unanswered).
+3. Dispatch the spec-drafter subagent with refine inputs (described in the drafter agent definition). The drafter receives the CURRENT spec body and must produce an UPDATED spec body that:
+   - Preserves every "Your answer:" line that has been modified by the human (anything that's not `[REPLACE THIS LINE...]`).
+   - May add new QUESTION-N blocks if the human's answers exposed new ambiguities.
+   - Never deletes or modifies existing answered QUESTIONs.
+4. Write the drafter's response verbatim to the spec file (overwrites the previous content).
+5. Print the same next-steps as the fresh path, but with `(refined)` annotating the spec path.
+
+Skip the id generation, the idempotency check, the intent-file write step, and the config-defaults lookup in refine mode — they only apply to fresh intents.
 
 ## Pre-checks
 
@@ -35,7 +57,7 @@ Before doing anything else:
 Check if `.claude/agentic/intents/<intent_id>.md` already exists. If it does:
 - Print: `agentic-dev: intent already exists at .claude/agentic/intents/<intent_id>.md`
 - Print: `  Spec file: .claude/agentic/specs/<intent_id>.md`
-- Print: `  To re-draft, use /agentic-dev:intent --refine .claude/agentic/specs/<intent_id>.md (ships in v0.2.x)`
+- Print: `  To re-draft, use /agentic-dev:intent --refine .claude/agentic/specs/<intent_id>.md`
 - Exit without writing anything.
 
 ## Write the intent file
@@ -83,7 +105,7 @@ The Agent tool returns the drafter's response. The response should begin with `-
 - Print the drafter's response to the user.
 - Print: `agentic-dev: drafter did not return a valid spec.`
 - Print: `  intent file preserved at: .claude/agentic/intents/<intent_id>.md`
-- Print: `  To retry the draft, delete the intent file and re-run /agentic-dev:intent, or wait for /agentic-dev:intent --refine in v0.2.x.`
+- Print: `  To retry the draft, delete the intent file and re-run /agentic-dev:intent, or run /agentic-dev:intent --refine <spec-path> if a spec file already exists.`
 - Exit.
 
 ## Write the spec file

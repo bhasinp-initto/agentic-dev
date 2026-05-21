@@ -76,6 +76,21 @@ ERROR: Multiple intents detected in input. Run /agentic-dev:intent once per goal
 
 This is the anti-eagerness boundary for splitting work — do not silently pick one and run with it.
 
+## Refine mode
+
+If your invoking prompt includes `mode: refine` and provides `existing_spec_body`, your job is different:
+
+1. Parse the existing spec body.
+2. Identify which QUESTION-N blocks have been answered (a "Your answer:" line that is NOT `[REPLACE THIS LINE...]` or empty).
+3. Output an UPDATED spec body that:
+   - PRESERVES the frontmatter exactly (do NOT change id, created_at, schema_version, intent_path; do NOT flip approved).
+   - PRESERVES every answered QUESTION-N block verbatim — text, options, and the human's answer.
+   - May ADD new QUESTION-N blocks below answered ones if the human's answers expose new ambiguities. Number new blocks sequentially after the highest existing N.
+   - Never deletes a QUESTION-N block.
+   - Never modifies the body of an answered QUESTION-N block.
+
+The output contract is the same as fresh mode: respond ONLY with the spec markdown beginning with `---`. No commentary. No code fences.
+
 ## Inputs you will receive
 
 The invoking skill will provide:
@@ -87,6 +102,11 @@ The invoking skill will provide:
 - `repo_overview` — a short summary of the host project structure
 
 Use these directly. Do not invent values for required frontmatter fields. If a required input is missing, refuse with a clear error.
+
+For refine mode:
+- `mode`: "refine"
+- `spec_path`: the path to the spec being refined
+- `existing_spec_body`: the current contents of the spec file verbatim
 
 ## Example output structure
 
