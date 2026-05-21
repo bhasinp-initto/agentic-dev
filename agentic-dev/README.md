@@ -2,7 +2,7 @@
 
 A Claude Code plugin that automates the three-role development pattern: a hardened agentic loop that implements, reviews, and escalates to the human only when quality requires it.
 
-This is **v0.2** — the plugin scaffold plus the spec-drafting layer (`/agentic-dev:intent`, `--refine` mode, `/agentic-dev:_check-approval` with an AI validator that turns concerns into new questions rather than rejections). The implementer subagent and the rest of the agentic loop ship in subsequent phases (P3–P8).
+This is **v0.3** — the plugin scaffold + spec-drafting layer + the implementer subagent with worktree-per-goal isolation. Approved specs can now be turned into committed code in a dedicated git worktree via the internal `/agentic-dev:_run-implementer` skill. The reviewer (P5) and autonomous orchestrator (P6) ship in subsequent phases.
 
 See `docs/superpowers/specs/2026-05-20-three-role-agentic-pattern-design.md` in the source repository for the full design.
 
@@ -44,9 +44,12 @@ Reports the current queue, circuit-breaker state, and recent activity.
 - `/agentic-dev:intent --refine <spec-path>` — re-run the drafter on a partially-answered spec. Preserves existing answers; may add new questions if answers exposed ambiguities.
 - `/agentic-dev:_check-approval <spec-path>` — run the AI validator on an approved spec. Two checks: measurability of completion criteria, scope coherence with the intent. Concerns are written back into the spec as new QUESTION-N blocks (no silent rejection); `approved` reverts to `false`.
 
+### v0.3
+- `/agentic-dev:_run-implementer <spec-path>` — internal lifecycle skill. Creates a dedicated git worktree at `.worktrees/goal-<id>/`, dispatches the `implementer-strict` subagent to write code against the approved spec following TDD discipline, captures a structured completion manifest, and generates a structured diff envelope. Not intended for routine human invocation; called by the orchestrator (P6) or by test scaffolding.
+
 ## What's coming next
 
-See repo issues / phase plans for P3 onward: implementer subagent with worktree isolation (P3), deterministic gates and hook wiring for scope/budget/sensitive-paths (P4), hardened reviewer + Telegram notifications (P5), overnight queue + circuit breaker (P6), cross-session memory (P7), marketplace polish + community submission (P8).
+See repo issues / phase plans for P4 onward: deterministic gates and hook wiring for scope/budget/sensitive-paths (P4), hardened reviewer + Telegram notifications (P5), overnight queue + circuit breaker (P6), cross-session memory (P7), marketplace polish + community submission (P8).
 
 ## Development
 

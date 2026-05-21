@@ -3,6 +3,29 @@
 All notable changes to `agentic-dev` are documented here.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [0.3.0] — 2026-05-21
+
+Implementer layer ships. An approved spec can now be turned into committed code in a dedicated worktree via the new internal lifecycle skill. Closing the loop (reviewer + orchestrator + queue) lands in P5–P6.
+
+### Added
+- `agents/implementer-strict.md` — implementer subagent with anti-eagerness calibration. Operates only in worktree; halts on ambiguity; honest test reporting; never commits to main; never pushes.
+- `skills/_run-implementer/SKILL.md` — internal lifecycle skill (orchestrator-invoked). Creates worktree, dispatches implementer, captures manifest + diff envelope.
+- `bin/worktree-init.sh` — creates `.worktrees/goal-<id>/` from current HEAD and writes the kickoff package.
+- `bin/worktree-cleanup.sh` — removes a worktree (post-success only; halted worktrees preserved for forensics).
+- `bin/migrate-v0.1-to-v0.2.sh` — one-shot idempotent migration for existing queue.yaml.
+- `schemas/manifest.schema.json` — completion manifest schema.
+- `schemas/diff-envelope.schema.json` — structured git-diff schema (consumed by P5 reviewer).
+- `schemas/queue.schema.json` — bumped to v0.2 with eight new optional goal-item fields (started_at, completed_at, halted_at, baseline_ref, head_ref, worktree_path, manifest_path, budget_overrides).
+- `tests/phase-3/` — 8 deterministic tests covering schemas, migration, worktree management, and structural verification of the implementer + lifecycle skill. **Zero `claude -p` invocations** per the new test-cost policy at `docs/superpowers/test-cost-policy.md`.
+
+### Resolved
+- P1-DEF-001 (queue goal schema extension strategy) — user chose explicit-fields-with-version-bump.
+
+### Notes
+- The implementer is a SUBAGENT, not user-invocable as a skill. The lifecycle skill `_run-implementer` is the only user-visible entry, prefixed with `_` to signal internal use.
+- v0.3 does not yet check the implementer's output for scope violations or budget breaches (that's P4's deterministic gates). It does not check whether the work is correct (P5's reviewer). Goals "complete" per the manifest's `status: complete` are accepted at face value in v0.3.
+- The new test-cost policy is in effect for all future phases. P3 burned <$2 in API credits during development vs ~$30+ for P2.
+
 ## [0.2.0] — 2026-05-20
 
 Spec drafting layer ships. Implementation is still not automated — the implementer subagent lands in P3.

@@ -1,4 +1,4 @@
-schema_version: "0.1"
+schema_version: "0.2"
 goals:
   - id: 2026-05-20-example-goal
     spec_path: .claude/agentic/specs/2026-05-20-example-goal.md

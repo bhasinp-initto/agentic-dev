@@ -14,6 +14,7 @@ This file is the single source of truth for tech debt across phases. Add to it w
 **What:** `agentic-dev/schemas/queue.schema.json` uses `additionalProperties: false` on goal items. Allowed fields today: `id`, `status`, `spec_path`, `intent_path`, `added_at`. P2's `/agentic-dev:intent` skill will likely need to add fields (`started_at`, `budget_overrides`, `worktree_path`, etc.) to goal items.
 **Decision required:** Either bump `schema_version` to `"0.2"` and add fields explicitly, OR relax `additionalProperties` to `false` only at the top-level queue, not on goal items.
 **Target:** P3-T1 (deferred from P2 — P2 didn't touch queue.yaml so the decision didn't surface). Must decide before writing any code that adds new fields to goal items.
+**Status:** ✅ CLOSED in Phase 3 — user-chosen path was "bump schema_version + add fields explicitly" (commit c041ffc). queue.schema.json bumped to v0.2 with 8 new optional goal-item fields (started_at, completed_at, halted_at, baseline_ref, head_ref, worktree_path, manifest_path, budget_overrides). additionalProperties:false preserved on goal items. Migration script `bin/migrate-v0.1-to-v0.2.sh` ships for upgrading existing queue.yaml files.
 
 ---
 

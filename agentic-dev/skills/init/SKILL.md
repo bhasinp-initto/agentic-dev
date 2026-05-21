@@ -78,9 +78,11 @@ Replace `<CURRENT ISO 8601 UTC TIMESTAMP>` with the actual current UTC timestamp
 ### `queue.yaml`
 
 ```yaml
-schema_version: "0.1"
+schema_version: "0.2"
 goals: []
 ```
+
+(v0.2 added optional goal-item fields for P3+; `goals: []` is still the correct empty-queue initializer.)
 
 ### `config.yaml`
 
