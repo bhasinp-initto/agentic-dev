@@ -2,7 +2,7 @@
 
 A Claude Code plugin that automates the three-role development pattern: a hardened agentic loop that implements, reviews, and escalates to the human only when quality requires it.
 
-This is **v0.3** — the plugin scaffold + spec-drafting layer + the implementer subagent with worktree-per-goal isolation. Approved specs can now be turned into committed code in a dedicated git worktree via the internal `/agentic-dev:_run-implementer` skill. The reviewer (P5) and autonomous orchestrator (P6) ship in subsequent phases.
+This is **v0.4** — adds six deterministic verification gates (scope, budget, sensitive-path, test-count, rerun-tests, pre-existing-failure forensic) that check the implementer's manifest claims against actual worktree state. The AI reviewer (P5) and autonomous orchestrator (P6) ship next.
 
 See `docs/superpowers/specs/2026-05-20-three-role-agentic-pattern-design.md` in the source repository for the full design.
 
@@ -47,9 +47,13 @@ Reports the current queue, circuit-breaker state, and recent activity.
 ### v0.3
 - `/agentic-dev:_run-implementer <spec-path>` — internal lifecycle skill. Creates a dedicated git worktree at `.worktrees/goal-<id>/`, dispatches the `implementer-strict` subagent to write code against the approved spec following TDD discipline, captures a structured completion manifest, and generates a structured diff envelope. Not intended for routine human invocation; called by the orchestrator (P6) or by test scaffolding.
 
+### v0.4
+- `/agentic-dev:_run-gates <goal-id>` — internal lifecycle skill. Runs six deterministic verification gates on a completed goal's manifest: scope (no out-of-spec file edits), budget (diff/files within declared budget), sensitive-path (no auth/migrations/etc. touched), test-count (no tests deleted vs baseline), rerun-tests (manifest's test counts match independent re-run), bisect-on-claim (any "pre-existing failure" deferral is verified by re-running the test on the baseline ref). Writes a per-goal verdict file. Halts on first blocking failure.
+- `bin/migrate-v0.1-to-v0.2.sh` (shipped in v0.3) — one-shot idempotent migration for existing queue.yaml files.
+
 ## What's coming next
 
-See repo issues / phase plans for P4 onward: deterministic gates and hook wiring for scope/budget/sensitive-paths (P4), hardened reviewer + Telegram notifications (P5), overnight queue + circuit breaker (P6), cross-session memory (P7), marketplace polish + community submission (P8).
+See repo issues / phase plans for P5 onward: hardened AI reviewer + escalation packets + Telegram notifications (P5), overnight queue + circuit breaker + drafter-running-ahead (P6), cross-session memory + auto-learning (P7), marketplace polish + community submission (P8).
 
 ## Development
 

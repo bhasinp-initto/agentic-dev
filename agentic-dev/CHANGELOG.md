@@ -3,6 +3,29 @@
 All notable changes to `agentic-dev` are documented here.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] — 2026-05-21
+
+Deterministic verification gates ship. The implementer's manifest claims (scope, budget, test counts) are now checked independently against actual worktree state. No AI in this layer — that's P5.
+
+### Added
+- `bin/gate-scope-check.sh` — verifies touched files against spec's "Files in scope" globs; cross-checks against manifest's own scope_check.
+- `bin/gate-budget-check.sh` — diff_lines, files_touched, wall_clock budget enforcement.
+- `bin/gate-sensitive-path-check.sh` — touched files matched against config.yaml's sensitive_paths globs; always-blocking on match.
+- `bin/gate-test-count-check.sh` — manifest.tests.passed compared against kickoff's baseline test counts; fails on drops.
+- `bin/gate-rerun-tests.sh` — independently re-runs the project test command in the worktree; cross-checks against manifest's reported counts.
+- `bin/bisect-on-claim.sh` — verifies "pre-existing failure" deferrals by re-running the failing test on baseline_ref in a temp worktree.
+- `bin/run-gates.sh` — orchestration wrapper that chains all gates, aggregates into a per-goal verdict, halts on first blocking failure.
+- `schemas/gate-verdict.schema.json` — structured per-goal verdict (gates[], overall, blocking_failures[], warnings[]).
+- `skills/_run-gates/SKILL.md` — internal lifecycle skill.
+- `tests/phase-4/` — 10 deterministic tests covering each gate + the orchestrator. Zero claude -p.
+
+### Modified
+- `bin/worktree-init.sh` — captures baseline test counts in kickoff JSON via the cascading regex parser (jest/mocha → pytest → generic → PASS/FAIL line count). Null fallback on parse failure.
+- `tests/phase-3/worktree_init_test.sh` — updated required-fields list to include `baseline` (collateral fix for the kickoff shape change).
+
+### Notes
+- P4 burned <$1 in API credits during development — full compliance with the test-cost policy.
+
 ## [0.3.0] — 2026-05-21
 
 Implementer layer ships. An approved spec can now be turned into committed code in a dedicated worktree via the new internal lifecycle skill. Closing the loop (reviewer + orchestrator + queue) lands in P5–P6.
