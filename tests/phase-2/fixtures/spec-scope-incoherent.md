@@ -36,7 +36,8 @@ Add tests for new behaviors. Existing tests must continue to pass.
 
 # Completion criteria
 
-- The footer renders with the new link
+- The footer HTML file contains a link element with the new text
+- Existing tests pass without modification
 
 # Diff budget
 

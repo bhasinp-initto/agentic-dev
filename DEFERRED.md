@@ -117,6 +117,18 @@ This file is the single source of truth for tech debt across phases. Add to it w
 **What:** `spec-drafter.md`'s refine rule `Never deletes a QUESTION-N block` is absolute. If Q3 picks branch A and Q4 only makes sense in branch B, Q4 survives forever. This is intentionally conservative. Worth a comment in the spec-drafter prompt acknowledging this is a known UX limitation.
 **Target:** v0.3 or later if conditional question trees become a real need.
 
+### P2-DEF-009 — approval_gate_test.sh: CWD leak after run_one cleanup
+
+**Source:** T5 code review.
+**What:** After `run_one` returns, the RETURN trap deletes `$TMP_PROJECT`, but the script's CWD is now a deleted directory. Bash on macOS holds the inode so it doesn't fail immediately, but `pwd` would error. The next `run_one` does `cd "$TMP_PROJECT"` to a fresh absolute path, so the script recovers. Worth a `cd "$REPO_ROOT"` between calls, or running `run_one` in a subshell.
+**Target:** v0.2.x polish.
+
+### P2-DEF-010 — approval_gate_test.sh: QUESTION-N assertion not isolated to new blocks
+
+**Source:** T5 code review.
+**What:** `grep -qE '<!-- QUESTION-[0-9]+ '` matches ANY QUESTION block, including ones pre-existing in the fixture. Current fixtures have no pre-existing QUESTIONs so the assertion correctly validates that a new one was added. If a future fixture ships with QUESTIONs already present, this assertion would pass even if the skill added no new blocks.
+**Target:** v0.2.x polish.
+
 ---
 
 ## How to use this file
