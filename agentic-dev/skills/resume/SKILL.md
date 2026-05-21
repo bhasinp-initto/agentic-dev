@@ -1,5 +1,5 @@
 ---
-description: Public skill. After a halt, decide how to proceed: resume | skip | address | replan | abort. Logs the decision to decisions.log and resets circuit breaker accordingly.
+description: Public skill. After a halt, decide how to proceed: resume | skip | address | replan | abort | accept. Logs the decision to decisions.log and resets circuit breaker accordingly.
 ---
 
 # `/agentic-dev:resume` — Post-Halt Decision Handler
@@ -21,20 +21,20 @@ Only a human can clear a halted circuit breaker. This skill is that gateway.
 $ARGUMENTS = <decision> [context...]
 ```
 
-- First token: the decision (required). One of: `resume`, `skip`, `address`, `replan`, `abort`.
-- Remaining tokens: freeform context / notes (optional, used for `address` decision).
+- First token: the decision (required). One of: `resume`, `skip`, `address`, `replan`, `abort`, `accept`.
+- Remaining tokens: freeform context / notes (optional, used for `address` and `accept` decisions).
 
 ### Parsing $ARGUMENTS
 
 1. If `$ARGUMENTS` is empty → refuse:
    ```
    ERROR: /agentic-dev:resume requires a decision argument.
-   Usage: /agentic-dev:resume <resume|skip|address|replan|abort> [context]
+   Usage: /agentic-dev:resume <resume|skip|address|replan|abort|accept> [context]
    ```
    Exit 1.
 
 2. Extract first token as `<decision>`.
-3. If `<decision>` is not one of the five valid values → refuse with the same usage error.
+3. If `<decision>` is not one of the six valid values → refuse with the same usage error.
 4. Remaining tokens (if any) = `<notes>`.
 
 ---
@@ -173,6 +173,40 @@ Exit 0.
 
 ---
 
+### `accept`
+
+The human reviewed the halted goal's worktree, decided the work is acceptable
+as-is despite the reviewer's concerns, and wants to mark it complete. This is
+the "I looked at the diff and I'm satisfied; the reviewer's concerns are noted
+but I accept the trade-off" path.
+
+Read the goal's manifest at `.claude/agentic/manifests/<GOAL_ID>.json` to get
+`head_ref` and `manifest_path`. Then:
+
+```bash
+bin/queue-set-status.sh <GOAL_ID> completed completed_at=<NOW_ISO> head_ref=<head_ref> manifest_path=<manifest_path>
+bin/circuit-breaker.sh idle
+```
+
+Print:
+```
+Goal <GOAL_ID> accepted as-is and marked completed.
+Worktree at .worktrees/goal-<GOAL_ID>/ is PRESERVED — merge to your main branch
+when ready, then run agentic-dev/bin/worktree-cleanup.sh <GOAL_ID> to remove it.
+Circuit breaker reset to idle.
+Run /agentic-dev:start to continue the queue with the next approved goal.
+```
+
+**Do NOT auto-clean the worktree on `accept`** — the human needs to inspect or
+merge from it. They'll clean it up explicitly when done.
+
+The reviewer's concerns remain in the verdict file and the escalation packet
+for forensic reference; this decision is the operator's explicit override.
+
+Exit 0.
+
+---
+
 ### `abort`
 
 Stop the entire queue run. No further goals are processed.
@@ -209,8 +243,10 @@ Exit 0.
 
 - **Do NOT** run if the circuit breaker is not halted. This skill is only valid
   in the `halted` state.
-- **Do NOT** apply any decision other than the five defined ones. Unknown decisions
+- **Do NOT** apply any decision other than the six defined ones. Unknown decisions
   are refused.
+- **Do NOT** auto-clean the worktree on `accept`. The human merges from it manually
+  and cleans up explicitly via `bin/worktree-cleanup.sh`.
 - **Do NOT** truncate or overwrite decisions.log — only append.
 - **Do NOT** delete escalation packets, manifests, or gate verdicts for the halted
   goal. These are preserved for forensic review regardless of decision.
@@ -229,4 +265,5 @@ Exit 0.
 | `skip` | `abandoned` | `idle` |
 | `address` | `approved` | `idle` |
 | `replan` | `drafted` | `idle` |
+| `accept` | `completed` | `idle` |
 | `abort` | `halted` (unchanged) | `completed` |

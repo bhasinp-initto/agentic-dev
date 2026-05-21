@@ -134,6 +134,18 @@ if data is None:
 if "entries" not in data or data["entries"] is None:
     data["entries"] = []
 
+# ── Self-heal: upgrade pre-1.0.3 state files in-place ─────────────────────────
+#
+# v1.0.0–v1.0.2's init skill wrote checklist.yaml + memory.yaml without a
+# schema_version field. log-incident.sh on a fresh project then failed schema
+# validation on the very first incident. Backfill schema_version: "0.1" when
+# missing so existing projects work without re-init.
+if "schema_version" not in data:
+    data = {
+        "schema_version": "0.1",
+        "entries": data["entries"],
+    }
+
 # ── Append entry ──────────────────────────────────────────────────────────────
 
 data["entries"].append(entry)

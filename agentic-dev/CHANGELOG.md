@@ -3,6 +3,25 @@
 All notable changes to `agentic-dev` are documented here.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.0.3] — 2026-05-21
+
+Two more bugs caught by the same real-project install, plus a new `accept` resume decision for "I reviewed the work, I'm happy with it as-is."
+
+### Fixed
+- **`log-incident.sh` failed schema validation on every fresh project.** The init skill (v1.0.0–v1.0.2) wrote `checklist.yaml` and `memory.yaml` without a `schema_version` field, so the first call to `log-incident.sh` always failed validation. The reviewer skill swallowed the failure per P7-L4 ("auto-append must never block the pipeline") but the cross-session learning feature was effectively dead.
+  - **Fix (going forward):** `init/SKILL.md` now writes `schema_version: "0.1"` into both files.
+  - **Fix (existing projects):** `log-incident.sh` self-heals — if the loaded yaml is missing `schema_version`, backfills `"0.1"` in-place before validation. Verified on both checklist + memory side.
+
+### Added
+- **`/agentic-dev:resume accept`** — new decision for "I looked at the halted goal's worktree, I'm satisfied with the work despite the reviewer's concerns, mark it complete." Marks `status: completed` + populates `completed_at`/`head_ref`/`manifest_path` from the manifest + resets circuit breaker to idle. **Does NOT auto-clean the worktree** — the human merges from it and runs `bin/worktree-cleanup.sh <goal-id>` explicitly when done.
+  - The reviewer's verdict + escalation packet remain on disk for forensic reference.
+  - Use this when you want the operator-override path: reviewer caught real concerns, you considered them, you accept the trade-off.
+
+### Notes
+- All six `/agentic-dev:resume` decisions now: `resume | skip | address <text> | replan | accept | abort`.
+- Resume structural test updated to assert all six.
+- Phase 7 log-incident test still passes (existing happy-path fixtures already had `schema_version`); the new self-heal path is verified by inline regression covered in the 1.0.3 commit body.
+
 ## [1.0.2] — 2026-05-21
 
 Caught by first real-project install on a real spec.

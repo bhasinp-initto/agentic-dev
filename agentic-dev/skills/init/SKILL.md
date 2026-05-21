@@ -112,7 +112,8 @@ After writing, validate the file is well-formed YAML and contains all required k
 
 ```yaml
 # Reviewer adversarial-pattern hints. Append-only. Each entry is an incident-derived rule.
-# Schema: list of { date, incident, rule, caught_by }
+# Schema: agentic-dev/schemas/checklist.schema.json
+schema_version: "0.1"
 entries: []
 ```
 
@@ -120,7 +121,8 @@ entries: []
 
 ```yaml
 # Orchestrator behavioral memory. Append-only. Each entry is an observation + consequence.
-# Schema: list of { date, observation, consequence }
+# Schema: agentic-dev/schemas/memory.schema.json
+schema_version: "0.1"
 entries: []
 ```
 

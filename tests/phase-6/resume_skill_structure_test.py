@@ -48,8 +48,8 @@ def main():
     if "$ARGUMENTS" not in text:
         failures.append("missing $ARGUMENTS reference")
 
-    # --- All 5 decision values must be present ---
-    required_decisions = ["resume", "skip", "address", "replan", "abort"]
+    # --- All 6 decision values must be present (added `accept` in 1.0.3) ---
+    required_decisions = ["resume", "skip", "address", "replan", "abort", "accept"]
     for decision in required_decisions:
         # Match whole word or as a decision label
         if not re.search(r'\b' + re.escape(decision) + r'\b', text, re.IGNORECASE):
