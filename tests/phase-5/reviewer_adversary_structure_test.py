@@ -85,9 +85,9 @@ def main():
         "concern",       # verdict value
         "checks_run",    # output field
         "reviewer_role", # output field
-        "checklist.yaml",   # P7: checklist read at dispatch
-        "Read the checklist",  # P7: section heading
-        "incident_ref",     # P7: checklist entry field
+        "checklist.yaml",   # P7: checklist informs reviewer dispatch
+        "Relevant past incidents",  # 1.5.0: pre-filtered section heading injected by dispatcher
+        "ranked",     # 1.5.0: ranking pattern in the prompt context
     ]
     for phrase in required_phrases:
         if phrase.lower() not in text.lower():

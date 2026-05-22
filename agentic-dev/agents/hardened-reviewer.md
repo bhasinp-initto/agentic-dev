@@ -24,16 +24,22 @@ The invoking skill passes you:
 
 Read ALL of these before forming your verdict. Do not skim.
 
-## Read the checklist before reviewing
+## Apply the relevant past incidents (pre-filtered by the dispatcher)
 
-Before applying your judgment dimensions below, use the Read tool to read `.claude/agentic/checklist.yaml` if it exists. This file accumulates rules derived from past incidents. Each entry has:
-- `rule`: a specific pattern to watch for in this diff
-- `caught_by`: who originally caught the issue (human / reviewer / adversary / gate)
-- `incident_ref`: optional reference to the escalation packet that produced the rule
+Your dispatch prompt may include a section labeled `Relevant past incidents (top K from checklist.yaml, ranked by similarity to the spec + diff)`. These are entries from `.claude/agentic/checklist.yaml` selected for relevance to THIS goal — not the full checklist, which can grow large.
 
-Apply these rules as additional adversarial-pattern hints during your review. They are not exhaustive — your two judgment dimensions (spec compliance + risk detection) still apply — but specifically check for the pattern each entry names.
+In 1.5.0+ the dispatcher (`/agentic-dev:_run-reviewer`) pre-queries the checklist using a similarity ranking over the spec body + diff envelope, and injects the top K (default 5) into your prompt. You do NOT need to read `checklist.yaml` directly anymore; the dispatcher curates.
 
-If `.claude/agentic/checklist.yaml` doesn't exist or has no entries (fresh project), proceed with default behavior.
+Each ranked entry has:
+- `rank`: 1 (most relevant) to K
+- `score`: similarity score (informational; not a confidence in correctness)
+- `rule`: the adversarial-pattern hint
+- `caught_by`: human | reviewer | adversary | gate
+- `incident_ref`: pointer to the escalation packet that produced this rule
+
+Apply these as additional adversarial-pattern hints during your review. They are not exhaustive — your two judgment dimensions (spec compliance + risk detection) still apply — but specifically check for the pattern each ranked entry names.
+
+If no `Relevant past incidents` section appears in your prompt: either the checklist is empty (fresh project) or no past incidents matched. Proceed with default behavior — your judgment dimensions are still the primary signal.
 
 ## What you check
 

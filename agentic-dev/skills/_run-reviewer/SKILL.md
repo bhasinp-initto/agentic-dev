@@ -66,6 +66,27 @@ There is no point dispatching AI judgment when deterministic gates already faile
 
 ---
 
+## Pre-dispatch: query the checklist for relevant past incidents (1.5.0+)
+
+Before dispatching the reviewer, query `.claude/agentic/checklist.yaml` for past-incident rules most relevant to THIS goal. Use the Bash tool:
+
+```bash
+# Build a query string from the spec body excerpt + diff envelope's raw_patch excerpt.
+# Truncate each to ~2000 chars to keep the bash arg manageable.
+QUERY="$(head -c 2000 <spec_path>)$(python3 -c '
+import json
+diff = json.load(open(".claude/agentic/diffs/<goal-id>.json"))
+print(diff.get("raw_patch", "")[:2000])
+')"
+
+# Query for top-5 relevant entries
+${CLAUDE_PLUGIN_ROOT}/bin/query-checklist.sh "$QUERY" -k 5
+```
+
+If the helper returns one or more JSONL lines, format them as a `Relevant past incidents` section in the dispatch prompt (see template below). If it returns nothing (empty checklist, or no token overlap with the query), skip the section — the reviewer's prompt simply won't have it.
+
+If `bin/query-checklist.sh` exits non-zero or fails to run (e.g., checklist.yaml missing in a fresh project): log to `validation-log.txt` and proceed without the section. **Query failure must NEVER block the dispatch** — the reviewer can still review without the pre-filtered hints.
+
 ## Dispatch the hardened-reviewer subagent
 
 If the gate verdict's `overall` is not `"fail"` (i.e., it is `"pass"` or `"warning"`), dispatch the hardened-reviewer subagent via the **Agent tool** with `subagent_type: hardened-reviewer`.
@@ -81,19 +102,27 @@ Read these files:
   Diff envelope: <absolute .claude/agentic/diffs/<goal-id>.json>
   Gate verdict:  <absolute .claude/agentic/verdicts/<goal-id>.json>
 
+Relevant past incidents (top 5 from checklist.yaml, ranked by similarity to the spec + diff):
+  [Only include this section if query-checklist.sh returned >=1 entry]
+  1. [<caught_by>] <rule>  (ESC ref: <incident_ref>, score: <score>)
+  2. ...
+  ...
+
 The manifest contains structured fields only — no implementer prose by design.
 Apply both judgment dimensions from your calibration:
   1. Spec compliance: does the diff actually implement what the spec requires?
   2. Risk detection: does it introduce security smells, hard-coded secrets, dependency drift, or out-of-spec creep?
 
 Categorize each concern:
-  - mechanical: coverage gap, lint nit, missing test edge case
-  - judgment: architectural choice, security risk, scope drift
-  - uncategorized: when in doubt — uncategorized is valid
+  - mechanical: code-fixable, including security with clear remediation
+  - judgment: requires spec change or value trade-off
+  - uncategorized: when in doubt — but try to classify first
 
 Output a single JSON object matching reviewer-verdict.schema.json with reviewer_role: "primary".
 No preamble. No code fences. Just JSON.
 ```
+
+Same `Relevant past incidents` section is also injected into the reviewer-adversary dispatch prompt below.
 
 ---
 

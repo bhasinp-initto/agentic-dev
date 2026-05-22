@@ -3,6 +3,40 @@
 All notable changes to `agentic-dev` are documented here.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.5.0] — 2026-05-22
+
+Fourth and final planned ruflo-complement: semantic checklist search. Reviewer dispatches now query the past-incident checklist by similarity instead of reading the whole file. Scales to large checklists without bloating reviewer prompt context.
+
+### Added
+- `bin/query-checklist.sh "<query>" [-k N]` — ranks entries in `.claude/agentic/checklist.yaml` by bag-of-words cosine similarity against a query string. Returns top-K as JSONL (one entry per line: `rank`, `score`, `date`, `incident_ref`, `rule`, `caught_by`). **No external ML dependencies** — pure stdlib + pyyaml, stopword-filtered cosine. Works well for N<200 entries; if quality degrades at scale, upgrade-path to real embeddings is clean (interface stays the same; backend swaps).
+- `tests/phase-7/query_checklist_test.sh` — 12 deterministic assertions covering missing-file / empty-query exit codes, ranking correctness across 4 distinct query topics, top-K limit, JSONL validity, descending-score order, rank-field monotonicity, no-match clean exit, empty-entries handling.
+
+### Changed
+- `skills/_run-reviewer/SKILL.md` — new pre-dispatch step (1.5.0+): build a query from the spec body excerpt + diff envelope's raw_patch excerpt (~2000 chars each), invoke `query-checklist.sh -k 5`, format the top-K entries as a `Relevant past incidents` section in the dispatch prompt. Same section injected into the reviewer-adversary dispatch. Query failure is non-blocking (logs, proceeds without the section).
+- `agents/hardened-reviewer.md` — checklist-reading section rewritten. The agent no longer reads `checklist.yaml` directly; the dispatcher pre-filters and injects only the top-ranked entries into the prompt context. Reduces reviewer's context overhead on projects with large checklists.
+- `agents/reviewer-adversary.md` — same change applied for symmetry.
+- `tests/phase-5/{hardened_reviewer,reviewer_adversary}_structure_test.py` — assertions updated to match the new "Relevant past incidents" section pattern.
+- `tests/phase-7/run_all.sh` — `query_checklist_test.sh` added.
+
+### Design rationale (vs. real embeddings)
+
+The original design considered `sentence-transformers/all-MiniLM-L6-v2` for vector embeddings — high quality but a ~80MB model download as a plugin dependency. For projects with `checklist.yaml` under ~200 entries, bag-of-words cosine over tokenized rule text is fast enough and accurate enough; the test suite verifies correct top-result selection across 4 distinct query topics. If empirical signal shows quality dropping at scale, the upgrade path is: swap the ranking function in `query-checklist.sh` to call a real embedding model; the JSONL interface stays identical, no downstream changes.
+
+### Borrowed from ruflo-rag-memory (MIT, in spirit)
+
+We did NOT depend on ruflo-rag-memory at runtime. The query-then-inject pattern is informed by their RAG architecture (RETRIEVE → JUDGE → DISTILL → CONSOLIDATE — see ruflo-intelligence ADR-0001). For 1.5.0 we ship just the RETRIEVE step with a simpler ranker; the rest of the pattern is deferred to future versions if needed.
+
+### Completes the post-v1 complements roadmap
+
+| Version | Complement | Status |
+|---|---|---|
+| 1.2.0 | Usage / cost observability (`/agentic-dev:cost`) | shipped |
+| 1.3.0 | PII / secrets scanning (`bin/check-pii.sh` + hook + `_check-approval` gate) | shipped |
+| 1.4.0 | Playwright walkthrough verification (umbrella §6.5 step 4 gap filled) | shipped |
+| 1.5.0 | Semantic checklist search (`bin/query-checklist.sh` + reviewer pre-dispatch query) | shipped |
+
+The four ruflo-complement features per `docs/superpowers/specs/2026-05-22-post-v1-complements-design.md` are now all in. The plugin remains independent of ruflo's runtime; ruflo-style capabilities are reimplemented under our license, in our control, with our quality discipline preserved.
+
 ## [1.4.0] — 2026-05-22
 
 Third complement: Playwright-driven UI walkthrough verification. Fills the umbrella spec §6.5 step 4 gap — after the AI reviewer returns clean (primary + adversary), a real browser exercises the goal's acceptance criteria. Catches what static review can't see: broken interactions, console errors, navigation that doesn't go where it should.

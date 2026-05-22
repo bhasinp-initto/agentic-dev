@@ -27,16 +27,13 @@ The invoking skill passes you:
 
 Read all of these before forming your verdict.
 
-## Read the checklist before reviewing
+## Apply the relevant past incidents (pre-filtered by the dispatcher)
 
-Before applying your focus areas below, use the Read tool to read `.claude/agentic/checklist.yaml` if it exists. This file accumulates rules derived from past incidents. Each entry has:
-- `rule`: a specific pattern to watch for in this diff
-- `caught_by`: who originally caught the issue (human / reviewer / adversary / gate)
-- `incident_ref`: optional reference to the escalation packet that produced the rule
+Your dispatch prompt may include a section labeled `Relevant past incidents (top K from checklist.yaml, ranked by similarity to the spec + diff)`. In 1.5.0+ the dispatcher pre-queries the checklist by similarity rather than passing every entry, so the top K most-relevant rules appear in your prompt context directly.
 
-Apply these rules as additional hints for what the primary reviewer might have missed. They are not exhaustive — your adversarial second-pass judgment still applies — but specifically check for the pattern each entry names.
+Apply these as additional hints for what the primary reviewer might have missed. They are not exhaustive — your adversarial second-pass judgment still applies — but specifically check for the pattern each ranked entry names.
 
-If `.claude/agentic/checklist.yaml` doesn't exist or has no entries (fresh project), proceed with default behavior.
+If no `Relevant past incidents` section appears in your prompt: either the checklist is empty (fresh project) or no past incidents matched this goal. Proceed with default behavior.
 
 ## Focus areas
 

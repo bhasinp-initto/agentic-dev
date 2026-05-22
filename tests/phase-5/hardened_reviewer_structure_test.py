@@ -60,8 +60,8 @@ def main():
         "checks_run",       # output field
         "reviewer_role",    # output field
         "do not invent",    # "never invent concerns" instruction
-        "checklist.yaml",   # P7: checklist read at dispatch
-        "Read the checklist",  # P7: section heading
+        "checklist.yaml",   # P7: checklist informs reviewer dispatch
+        "Relevant past incidents",  # 1.5.0: pre-filtered section heading injected by dispatcher
         "incident_ref",     # P7: checklist entry field
         "adversarial-pattern hints",  # P7: how checklist is applied
     ]

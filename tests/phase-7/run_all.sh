@@ -16,4 +16,8 @@ echo "=== log_incident_test ==="
 bash "$DIR/log_incident_test.sh"
 
 echo
+echo "=== query_checklist_test ==="
+bash "$DIR/query_checklist_test.sh"
+
+echo
 echo "All Phase 7 tests passed (deterministic; no claude -p)."
