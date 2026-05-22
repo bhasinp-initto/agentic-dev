@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Agentic Walkthrough Verdict",
+  "description": "Structured output the walkthrough-runner subagent produces after exercising a goal's acceptance criteria in a live browser (Playwright). Generated only for UI-touching goals; non-UI goals skip with verdict: skipped.",
+  "type": "object",
+  "required": [
+    "schema_version", "goal_id", "walked_at", "verdict",
+    "criteria_results", "console_errors_count", "artifacts"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "string", "const": "0.1" },
+    "goal_id": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}-[a-z0-9-]+$"
+    },
+    "walked_at": { "type": "string", "format": "date-time" },
+    "verdict": {
+      "type": "string",
+      "enum": ["clean", "concern", "blocking", "skipped"],
+      "description": "clean=all criteria pass; concern=some criteria fail or console errors present; blocking=critical failure (dev server didn't start, page crashed, etc.); skipped=non-UI goal or walkthrough not configured"
+    },
+    "skip_reason": {
+      "type": ["string", "null"],
+      "description": "Populated only when verdict=skipped. Examples: 'no walkthrough section in spec', 'dev_server_command not configured and no server detected at acceptance_url'."
+    },
+    "dev_server": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "description": "Populated when verdict != skipped. Describes the dev-server context the walkthrough used.",
+      "properties": {
+        "command": { "type": ["string", "null"] },
+        "started_by_walkthrough": { "type": "boolean" },
+        "url_reachable": { "type": "boolean" }
+      },
+      "required": ["command", "started_by_walkthrough", "url_reachable"]
+    },
+    "criteria_results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["criterion", "outcome", "evidence"],
+        "additionalProperties": false,
+        "properties": {
+          "criterion": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The natural-language criterion verbatim from the spec's Walkthrough section."
+          },
+          "outcome": {
+            "type": "string",
+            "enum": ["pass", "fail", "inconclusive"]
+          },
+          "evidence": {
+            "type": "string",
+            "description": "What the runner observed: URL it landed on, text it saw, screenshot path, etc."
+          },
+          "screenshot_path": {
+            "type": ["string", "null"],
+            "description": "Relative path under .claude/agentic/walkthrough-screenshots/<goal-id>/, if a screenshot was captured for this criterion."
+          }
+        }
+      }
+    },
+    "console_errors_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Browser console errors observed during the walkthrough. Non-zero contributes to verdict=concern."
+    },
+    "console_errors_sample": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "First 10 distinct error messages (capped to avoid bloating the verdict file)."
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "path"],
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": ["screenshot", "har", "console-log", "network-log", "trace"]
+          },
+          "path": { "type": "string" }
+        }
+      }
+    },
+    "duration_ms": {
+      "type": ["integer", "null"],
+      "minimum": 0
+    }
+  }
+}

@@ -3,6 +3,41 @@
 All notable changes to `agentic-dev` are documented here.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.4.0] — 2026-05-22
+
+Third complement: Playwright-driven UI walkthrough verification. Fills the umbrella spec §6.5 step 4 gap — after the AI reviewer returns clean (primary + adversary), a real browser exercises the goal's acceptance criteria. Catches what static review can't see: broken interactions, console errors, navigation that doesn't go where it should.
+
+### Added
+- `schemas/walkthrough-verdict.schema.json` — structured verdict with verdict (clean | concern | blocking | skipped), per-criterion outcomes (pass | fail | inconclusive), dev-server context, screenshot artifacts, console error sample (first 10 distinct).
+- `agents/walkthrough-runner.md` — read-only subagent with Playwright MCP tools (`mcp__playwright__*`). Probes the acceptance_url; brings up the dev server only if needed; iterates acceptance criteria; captures screenshots per criterion; collects console errors; tears down the dev server if it started one; outputs JSON verdict. **Read-only at the file-system level** — never modifies worktree, spec, or any state file. Skips cleanly when no walkthrough is configured or Playwright is unavailable.
+- `skills/_run-walkthrough/SKILL.md` — orchestrator-invoked lifecycle. Pre-checks reviewer-clean; reads `kickoff.walkthrough`; if absent → writes a skipped stub verdict and exits. Otherwise dispatches walkthrough-runner, validates response against schema, writes verdict to `.claude/agentic/walkthrough-verdicts/<goal-id>.json`. On malformed subagent output: saves raw to `.raw.txt`, stubs a blocking verdict.
+- `bin/worktree-init.sh` — parses a `# Walkthrough` section from the spec body (acceptance URL, dev server command, dev server ready pattern, acceptance criteria bullet list). Result populates `kickoff.walkthrough` (or `null` for non-UI goals). Explicit `Acceptance URL: skip` / `n/a` / `none` is treated as opt-out.
+- `skills/_advance-goal/SKILL.md` — new pipeline step: after reviewer-clean (primary + adversary), before clean-path goal completion, invoke `_run-walkthrough <id>`. Route on walkthrough verdict: clean / skipped → clean path; concern → feed criteria failures + console errors as concerns to the auto-fix queue (`<id>.walkthrough.json`), re-enter the auto-fix loop (counts against the same 3-round cap); blocking → halt with `walkthrough_blocking` trigger.
+- `agents/spec-drafter.md` — calibration table row added: drafter emits a `# Walkthrough` section. For UI-touching intents, the section is a QUESTION-N block requesting Acceptance URL + Dev server command + criteria. For non-UI intents, the section is `- Acceptance URL: skip` only.
+- `tests/phase-2/walkthrough_verdict_schema_test.py` — 8 deterministic assertions (positive cases for clean / skipped / concern; negative cases for bad enum / missing field / bad date-time / negative counts).
+- `tests/phase-2/walkthrough_runner_structure_test.py` — structural test for the subagent. Asserts frontmatter, tools list excludes Write/Edit, Playwright MCP tools declared, required behaviors (skip conditions, dev-server flow, output contract).
+- `tests/phase-2/run_walkthrough_skill_structure_test.py` — structural test for the lifecycle skill.
+- `tests/phase-2/run_all.sh` — three new structural tests added.
+
+### Pipeline shape after 1.4.0
+
+```
+implementer → gates → reviewer → walkthrough → done
+                ↑          ↓
+                └── auto-fix loop ── (cap 3 rounds across reviewer + walkthrough concerns)
+```
+
+A non-UI goal (no Walkthrough section in spec or `Acceptance URL: skip`) gets `verdict: skipped` from the walkthrough lifecycle, which the orchestrator treats as a clean honest outcome. The pipeline shape is identical for non-UI goals — the walkthrough step is just a quick no-op.
+
+### Borrowed from ruflo-browser (MIT)
+
+We did NOT depend on `ruflo-browser` at runtime. The session-as-skill structural pattern from their ADR-0001 informed our `_run-walkthrough` design; the actual Playwright invocations use Claude Code's native `mcp__playwright__*` MCP tools.
+
+### Notes
+- **Playwright MCP must be active** for actual walkthroughs to run. If `mcp__playwright__*` tools aren't available, the walkthrough subagent returns `verdict: skipped` with `skip_reason: "Playwright MCP tools not available"`. Pipeline continues; this is treated as a non-failure.
+- Existing specs without a `# Walkthrough` section auto-skip — no migration needed for pre-1.4.0 goals.
+- The walkthrough step is added to the auto-fix loop's cap accounting. A goal that needs 1 reviewer round + 1 walkthrough round = 2 rounds used (out of 3).
+
 ## [1.3.0] — 2026-05-22
 
 Second complement: PII / secrets scanning. Prevents secrets from leaking into specs (caught pre-approval) and surfaces them as advisory warnings when written to sensitive output files (escalation packets, decisions.log, memory.yaml, checklist.yaml, notifications-log.txt).

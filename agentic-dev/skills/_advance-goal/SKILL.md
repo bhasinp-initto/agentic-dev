@@ -207,10 +207,43 @@ still found unresolved concerns. Exit 1.
 
 ---
 
-## Clean Path (success)
+## Walkthrough step (after reviewer-clean, before clean path — added in 1.4.0)
 
 When the reviewer returns clean with no auto-fix-queue file (either on the primary pass or
-after a successful auto-fix round):
+after a successful auto-fix round), invoke the walkthrough lifecycle BEFORE marking the goal
+completed:
+
+```
+/agentic-dev:_run-walkthrough <id>
+```
+
+Wait for it to return. Read the verdict at `.claude/agentic/walkthrough-verdicts/<id>.json`.
+
+**Route on walkthrough verdict:**
+
+- **`clean`** OR **`skipped`** → proceed to the **Clean Path** below. Skipped is a valid honest outcome for non-UI goals (no walkthrough section in spec, no dev server configured / detected). It is NOT a failure.
+
+- **`concern`** → write the criteria_results entries with `outcome: fail` or `inconclusive` (and console errors) to the auto-fix queue at `.claude/agentic/auto-fix-queue/<id>.walkthrough.json`. Each entry becomes a concern object that the implementer can address:
+
+  ```json
+  [
+    {"category": "mechanical", "severity": "concern", "file": "<best-guess source file or \"<browser>\">", "line": 0,
+     "description": "Walkthrough criterion failed: <criterion text> — observed: <evidence>"},
+    ...
+  ]
+  ```
+
+  Then re-enter the auto-fix loop above (same cap counter — walkthrough rounds count against the 3-round limit). The implementer reads the walkthrough-failure concerns just like reviewer concerns. After the implementer finishes, re-run gates → reviewer → walkthrough. On clean walkthrough, advance.
+
+- **`blocking`** → halt path. The walkthrough either couldn't start (dev server didn't come up) or saw a fatal browser-side crash. The orchestrator generates an escalation packet with `trigger: walkthrough_blocking`. Exit 1.
+
+The walkthrough verdict is a new artifact alongside the reviewer verdict; both persist in `.claude/agentic/`.
+
+---
+
+## Clean Path (success)
+
+When **both** the reviewer AND the walkthrough return clean (or walkthrough is skipped for non-UI goals):
 
 1. Capture final HEAD:
    ```bash

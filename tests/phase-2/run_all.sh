@@ -28,6 +28,22 @@ echo "=== cost_skill_structure_test ==="
 python3 "$DIR/cost_skill_structure_test.py"
 
 echo
+echo "=== check_pii_test ==="
+bash "$DIR/check_pii_test.sh"
+
+echo
+echo "=== walkthrough_verdict_schema_test ==="
+python3 "$DIR/walkthrough_verdict_schema_test.py"
+
+echo
+echo "=== walkthrough_runner_structure_test ==="
+python3 "$DIR/walkthrough_runner_structure_test.py"
+
+echo
+echo "=== run_walkthrough_skill_structure_test ==="
+python3 "$DIR/run_walkthrough_skill_structure_test.py"
+
+echo
 echo "=== intent_refine_test ==="
 bash "$DIR/intent_refine_test.sh"
 

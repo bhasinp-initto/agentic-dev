@@ -179,6 +179,57 @@ if test_cmd:
             file=_sys.stderr,
         )
 
+# Parse the spec for a `# Walkthrough` section (added in 1.4.0).
+# Shape expected in spec body (free-form, parsed leniently):
+#
+#   # Walkthrough
+#   - Acceptance URL: http://localhost:5173/
+#   - Dev server command: npm run dev
+#   - Dev server ready pattern: Local:.*5173
+#   - Acceptance criteria:
+#     - Open / and verify ...
+#     - Click 'Watchlist' ...
+#     - ...
+#
+# If the section is absent or has no criteria, walkthrough field is null;
+# the walkthrough lifecycle then returns verdict: skipped.
+walkthrough = None
+try:
+    import re as _re
+    spec_text = open(abs_spec_path).read()
+    m = _re.search(r"^# Walkthrough\s*$(.+?)(?=^# |\Z)", spec_text, _re.MULTILINE | _re.DOTALL)
+    if m:
+        section = m.group(1)
+        def grab(label):
+            mm = _re.search(rf"-\s*{label}\s*:\s*(.+)", section)
+            return mm.group(1).strip() if mm else None
+        acc_url = grab("Acceptance URL")
+        dev_cmd = grab("Dev server command")
+        dev_ready = grab("Dev server ready pattern")
+        # Parse acceptance criteria as a bullet list under "Acceptance criteria:"
+        criteria_match = _re.search(r"-\s*Acceptance criteria\s*:\s*$(.+?)(?=^-\s|\Z)",
+                                    section, _re.MULTILINE | _re.DOTALL)
+        criteria = []
+        if criteria_match:
+            for line in criteria_match.group(1).splitlines():
+                line = line.strip()
+                if line.startswith("- "):
+                    criteria.append(line[2:].strip())
+        # Treat "skip", "n/a", "none" (case-insensitive) as explicit skip
+        if acc_url and acc_url.lower() in ("skip", "n/a", "none"):
+            walkthrough = None
+        elif acc_url and criteria:
+            walkthrough = {
+                "acceptance_url": acc_url,
+                "acceptance_criteria": criteria,
+                "dev_server_command": dev_cmd,
+                "dev_server_ready_pattern": dev_ready,
+            }
+except Exception as _exc:
+    import sys as _sys
+    print(f"WARNING: worktree-init: failed to parse Walkthrough section: {_exc}",
+          file=_sys.stderr)
+
 kickoff = {
     "goal_id": goal_id,
     "spec_path": abs_spec_path,
@@ -190,6 +241,7 @@ kickoff = {
     "baseline": {
         "test_counts": baseline_test_counts,
     },
+    "walkthrough": walkthrough,
 }
 
 with open(os.path.join(worktree_abs, ".agentic-kickoff.json"), "w") as f:
