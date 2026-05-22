@@ -24,6 +24,10 @@ echo "=== enqueue_goal_test ==="
 bash "$DIR/enqueue_goal_test.sh"
 
 echo
+echo "=== cost_skill_structure_test ==="
+python3 "$DIR/cost_skill_structure_test.py"
+
+echo
 echo "=== intent_refine_test ==="
 bash "$DIR/intent_refine_test.sh"
 

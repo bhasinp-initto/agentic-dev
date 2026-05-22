@@ -3,6 +3,23 @@
 All notable changes to `agentic-dev` are documented here.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.2.0] — 2026-05-22
+
+First of four planned ruflo-complement features (see `docs/superpowers/specs/2026-05-22-post-v1-complements-design.md` for the full roadmap). Usage observability ships; PII scanning, walkthrough verification, and semantic checklist follow as separate minor versions.
+
+### Added
+- `/agentic-dev:cost [--since YYYY-MM-DD] [--goal <id>]` — public skill that walks artifacts under `.claude/agentic/` (manifests, verdicts, reviewer-verdicts) and prints a usage rollup: per-goal status / duration / estimated subagent dispatches / diff size, plus a queue-level summary. **Honest scope:** the plugin cannot read the Anthropic Console billing API; this report is for correlation, not for tracking actual API spend. The skill prints a clear disclaimer documenting what it can and cannot see.
+- Pure read-only; no subagent dispatch; no state mutation. Implemented entirely via Read + Bash + Python heredoc artifact-walking.
+- Deterministic structural test at `tests/phase-2/cost_skill_structure_test.py`.
+
+### Documentation
+- `docs/superpowers/ruflo-integration-notes.md` — boundary doc codifying which ruflo plugins are safe to use alongside `agentic-dev`, which to avoid, and the specific touch-points where care is required.
+- `docs/superpowers/specs/2026-05-22-post-v1-complements-design.md` — design for the full v1.2.0 → v1.5.0 roadmap of ruflo-complement features (cost, PII, walkthrough, semantic checklist), with per-feature scope, borrow-from-ruflo strategy, and test cost expectations.
+
+### Notes
+- The other three planned complements stay design-only in v1.2.0 — implementation order is v1.3.0 PII scanning, v1.4.0 walkthrough (filling the umbrella §6.5 step 4 gap for UI verification), v1.5.0 semantic checklist (deferable until empirical signal that grep on `checklist.yaml` becomes lossy).
+- We borrow ruflo's open-source code (MIT-licensed) where useful but do not depend on their runtime — see `docs/superpowers/ruflo-integration-notes.md` for the rationale.
+
 ## [1.1.0] — 2026-05-21
 
 Auto-fix loop is no longer category-gated. Reviewer's `verdict` is the routing signal; `category` is implementer guidance. Caught by a real run where IDOR + CORS concerns escalated even though both had clear code-level fixes.
