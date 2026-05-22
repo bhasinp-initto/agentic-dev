@@ -3,6 +3,33 @@
 All notable changes to `agentic-dev` are documented here.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.3.0] — 2026-05-22
+
+Second complement: PII / secrets scanning. Prevents secrets from leaking into specs (caught pre-approval) and surfaces them as advisory warnings when written to sensitive output files (escalation packets, decisions.log, memory.yaml, checklist.yaml, notifications-log.txt).
+
+### Added
+- `bin/check-pii.sh <file>` — deterministic regex scanner. Detects:
+  - **High severity** (exit 1): AWS access key, Anthropic API key, OpenAI API key, GitHub PAT, Slack token, Stripe secret, GCP service account marker, Telegram bot token, DB connection strings with embedded creds, private keys (RSA/EC/OpenSSH/DSA/PGP).
+  - **Medium severity** (exit 0 + finding emitted): JWTs, inline `api_key=…` / `secret=…` / `token=…` / `password=…` assignments.
+  - **Info severity** (exit 0 + finding emitted): high-entropy hex strings >=48 chars (excludes git SHAs which are 40 chars).
+  - Matched values are redacted in output (first 6 + "…" + last 4 chars) so audit logs never carry the full secret.
+  - Output is JSONL (one finding per line); each finding has `pattern`, `severity`, `description`, `line`, `redacted_match`.
+- `bin/check-pii-hook.sh` — PostToolUse hook wrapper. Reads hook JSON from stdin, filters to sensitive output files only (escalations / memory.yaml / checklist.yaml / decisions.log / notifications-log.txt), runs `check-pii.sh`, prints findings to stdout. **Always exits 0** — advisory, never blocking (P7-L4: side channels never block the pipeline).
+- `hooks/hooks.json` — second hook command added under the same `Write|Edit` matcher.
+- `tests/phase-2/check_pii_test.sh` — 19 deterministic assertions covering all severity tiers, redaction, line-number accuracy, JSONL validity, exit-code semantics, and the negative cases (git SHA / UUID / normal prose must not false-positive).
+
+### Changed
+- `skills/_check-approval/SKILL.md` — added pre-check 4: invoke `check-pii.sh` on the spec; refuse approval if exit code is 1 (high-severity findings). The AI validator is not dispatched until the spec is clean. Medium/info findings are surfaced as warnings but do not block.
+
+### Patterns borrowed in spirit from ruflo-aidefence (MIT-licensed)
+
+We did NOT take a runtime dependency on `ruflo-aidefence`. The pattern set is reimplemented in pure regex under our own MIT license, with the inspiration documented in `bin/check-pii.sh`'s header comment.
+
+### Notes
+- Hook is non-blocking by design. If a goal's escalation packet contains a real secret, the operator sees a warning in the transcript but the goal still completes / halts normally. Real secrets should be redacted manually + the underlying source corrected (e.g., implementer wrote the key into a commit — investigate that root cause).
+- The `_check-approval` pre-check is the gate that matters most: secrets in a spec mean the implementer would learn them; refusing approval until the spec is clean prevents that propagation.
+- Spec-pre-approval flow on a clean spec: same as before. On a spec with a high-severity finding: refused with a clear redact-and-retry message.
+
 ## [1.2.0] — 2026-05-22
 
 First of four planned ruflo-complement features (see `docs/superpowers/specs/2026-05-22-post-v1-complements-design.md` for the full roadmap). Usage observability ships; PII scanning, walkthrough verification, and semantic checklist follow as separate minor versions.

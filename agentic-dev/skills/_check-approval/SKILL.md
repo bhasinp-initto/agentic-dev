@@ -24,6 +24,16 @@ and exit.
 
 3. **No QUESTION blocks**: Confirm there are no `<!-- QUESTION-` markers. If any exist, print `agentic-dev: spec has unresolved QUESTION blocks; resolve them before running _check-approval` and exit.
 
+4. **PII / secrets scan** (added in 1.3.0): invoke `${CLAUDE_PLUGIN_ROOT}/bin/check-pii.sh <spec-path>` via the Bash tool. If the script exits with code 1 (any high-severity findings), refuse approval with:
+
+```
+agentic-dev: PII scan refused approval — high-severity findings in the spec:
+<paste check-pii.sh stdout — JSONL output, one finding per line>
+Edit the spec to remove or redact the offending values, then re-approve.
+```
+
+Exit. The user must clean the spec and re-run `_check-approval`. Medium / info findings (exit 0 with non-empty output) are surfaced as warnings but do not block approval.
+
 Do NOT run the deterministic validator script. The hook already ran it when the file was saved; running it again is redundant and requires locating the plugin directory.
 
 ## Dispatch the AI validator
