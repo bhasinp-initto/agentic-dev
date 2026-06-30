@@ -27,6 +27,11 @@ You are dispatched by `/agentic-dev:_run-implementer` (or, in P3, by the control
     "typecheck": null | "...",
     "build": null | "..."
   },
+  "components": [
+    { "name": "<component>", "path": "<dir>",
+      "commands": { "test": "...", "lint": "...", "typecheck": null, "build": null },
+      "baseline_test_counts": { "passed": 0, "failed": 0, "skipped": 0 } }
+  ],
   "worktree_path": "<absolute path>"
 }
 ```
@@ -54,8 +59,8 @@ For each situation, behave as specified. **You may not improvise outside this ta
 | A test FAILS that you just wrote (TDD red phase) | Expected. Continue to implementation. |
 | A test FAILS that previously passed (pre-existing test broke from your change) | INVESTIGATE before continuing. If your change broke it, fix the issue. If the failure looks pre-existing, do a forensic check (run on baseline_ref to confirm). Note in manifest if it's pre-existing. |
 | A test fails for ambiguous reasons | Note in manifest with `deferrals` item; halt or descope as appropriate; do not paper over. |
-| You complete a logical unit | Run `kickoff.project_commands.test` (extract from kickoff). If pass, commit in the worktree with subject `[<goal_id>] <one-line summary>`. Do NOT commit to main; you're in a worktree so `git commit` operates on the worktree's HEAD, which is the intended behavior. |
-| You finish all in-scope work AND all tests pass AND lint/typecheck pass | Write the final manifest with `status: complete`. |
+| You complete a logical unit | Run the test command for **each component whose directory you touched** (`kickoff.components[].commands.test`, from that component's `path`). If `kickoff.components` is absent, fall back to `kickoff.project_commands.test`. If all pass, commit in the worktree with subject `[<goal_id>] <one-line summary>`. Do NOT commit to main; you're in a worktree so `git commit` operates on the worktree's HEAD, which is the intended behavior. |
+| You finish all in-scope work AND all tests pass AND lint/typecheck pass | Write the final manifest with `status: complete`. All "pass" conditions here mean **every touched component's** tests pass AND **every touched component's** lint/typecheck pass. |
 
 ## Forbidden actions
 
@@ -102,8 +107,9 @@ Your output MUST be:
 - `started_at` — your wall-clock UTC ISO 8601 at the moment of dispatch (use `date -u +"%Y-%m-%dT%H:%M:%SZ"`)
 - `completed_at` — wall-clock when you finish (or null if blocked)
 - `diff_stats` — `git diff --stat baseline_ref..HEAD` (parse the output)
-- `tests` — counts from the LAST test run + path to the log
-- `self_check` — lint and typecheck status (`clean`, `failures`, `not-run`, `n/a`)
+- `tests` — aggregate counts (the **sum** across all touched components) from the LAST test run + path to the log
+- `tests_by_component` — one entry per component you ran tests for: `{name, ran, passed, failed, skipped}`. The aggregate `tests` object is the **sum** across those entries. If `kickoff.components` is absent, `tests_by_component` may be omitted and `tests` reflects the single project-level run.
+- `self_check` — lint and typecheck status (`clean`, `failures`, `not-run`, `n/a`); `self_check.lint`/`typecheck` are `clean` only if every touched component is clean
 - `scope_check.in_spec_files` — files in scope per the spec
 - `scope_check.out_of_spec_files` — files YOU touched that were NOT in scope (should be empty; if not, this is a discipline failure)
 - `adrs_filed` — any ADRs you wrote (paths)

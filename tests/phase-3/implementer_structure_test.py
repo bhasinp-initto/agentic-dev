@@ -79,6 +79,12 @@ def main():
     if "manifest" not in text.lower() or "json" not in text.lower():
         failures.append("output contract doesn't describe manifest as JSON")
 
+    # Per-component test execution and reporting
+    if "kickoff.components" not in text:
+        failures.append("implementer must read kickoff.components")
+    if "tests_by_component" not in text:
+        failures.append("implementer must report tests_by_component")
+
     if failures:
         for f in failures:
             print(f"FAIL {f}")
