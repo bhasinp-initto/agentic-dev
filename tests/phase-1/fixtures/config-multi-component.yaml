@@ -1,0 +1,33 @@
+schema_version: "0.1"
+project:
+  name: fullstack-app
+  primary_language: typescript
+commands:
+  test: "pytest -q"
+  lint: "ruff check ."
+  typecheck: ~
+  build: ~
+components:
+  - name: backend
+    path: backend
+    primary_language: python
+    commands:
+      test: "pytest -q"
+      lint: "ruff check ."
+      typecheck: "mypy ."
+      build: ~
+  - name: frontend
+    path: frontend
+    primary_language: typescript
+    commands:
+      test: "npm test"
+      lint: "npm run lint"
+      typecheck: "tsc --noEmit"
+      build: "npm run build"
+budgets:
+  wall_clock_minutes_per_goal: 90
+  diff_lines_per_goal: 800
+  files_touched_per_goal: 25
+sensitive_paths: ["auth/**"]
+telegram: ~
+push_policy: hold
