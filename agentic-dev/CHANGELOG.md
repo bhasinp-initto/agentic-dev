@@ -3,6 +3,28 @@
 All notable changes to `agentic-dev` are documented here.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.6.0] — 2026-06-30
+
+Multi-component (fullstack monorepo) support. A project can now declare multiple components — e.g. `backend/` (pytest/ruff) and `frontend/` (npm test/eslint) — each with its own working directory and toolchain. The gate pipeline tests and lints only the components a goal actually touches. Fully backward compatible: existing single-command configs are unchanged.
+
+### Added
+- `config.yaml` optional `components` array. Each component: `name`, `path` (dir relative to repo root; `.` allowed), optional `primary_language`, and its own `commands.{test,lint,typecheck,build}`. `schemas/config.schema.json` validates it; the top-level `commands` block stays required as the single-component shorthand.
+- `bin/agentic_components.py` — shared component model and the single source of the normalization/ownership rules: `normalize(cfg)` (folds a single-component config into a one-element `.`-path component), `owner()`/`select_touched()` (path-segment ownership; longest path wins; `front` never matches `frontend`), and `parse_test_counts()` (the cascading count parser, previously duplicated inline). Stdlib only. Imported by `worktree-init.sh` and both gate scripts.
+- `manifest.schema.json` optional `tests_by_component` array (`{name, ran, passed, failed, skipped}`); the aggregate `tests` object stays required as the sum.
+- `tests/phase-3/agentic_components_test.py` plus multi-component and single-`.`-component fixtures/cases across phases 1, 3, and 4.
+
+### Changed
+- `bin/worktree-init.sh` — captures a baseline test count per component, run from each component's own directory, and emits a `components` array in the kickoff. Legacy `project_commands` + `baseline.test_counts` are still written (from the first component) for compatibility.
+- `bin/gate-rerun-tests.sh` — when the kickoff has `components` and the manifest has `tests_by_component`, re-runs each **touched** component's tests from its directory and compares per-component (mismatch → blocking fail naming the component). Files owned by no component are surfaced (`raw.unmatched_files` + a `details` note); a touched component with no manifest claim → `inconclusive` (precedence: fail > inconclusive > pass). Single-component configs fall through to the unchanged legacy path.
+- `bin/gate-test-count-check.sh` — compares each component's manifest counts to that component's kickoff baseline; a per-component drop below baseline is a regression. Iterates the manifest's reported components, so untouched components never produce false regressions.
+- `agents/implementer-strict.md` — reads `kickoff.components`; runs each touched component's test **and** lint/typecheck from its directory; reports `tests_by_component` plus the aggregate sum. Single-component fallback preserved.
+- `skills/init/SKILL.md` — interactive mode asks single-vs-multiple and collects per-component commands; YAML mode reproduces a `components` block verbatim and mirrors the first component into the top-level `commands`.
+- `skills/status/SKILL.md` — config summary lists each component when `components` is present; single-component output unchanged.
+
+### Design rationale (backward compatibility via normalization)
+
+Rather than migrate existing configs, the top-level `commands` block remains valid as a single-component shorthand. `normalize()` folds it into a one-element component with `path: "."`, so every already-onboarded project and the full pre-existing test suite work unchanged — and single-component runs now travel the same per-component code path (with explicit regression tests), making the new path the real backward-compatibility guarantee, not a separate legacy branch.
+
 ## [1.5.0] — 2026-05-22
 
 Fourth and final planned ruflo-complement: semantic checklist search. Reviewer dispatches now query the past-incident checklist by similarity instead of reading the whole file. Scales to large checklists without bloating reviewer prompt context.
