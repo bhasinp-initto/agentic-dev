@@ -103,10 +103,11 @@ Required fields and their derivations:
 - `sensitive_paths`: default to `["auth/**", "migrations/**", "schema/**", "secrets/**", "payments/**", "infra/**"]` unless overridden in input
 - `telegram`: default `null` unless overridden in input
 - `push_policy`: default `"hold"` unless overridden in input
+- `components` (optional): if the input YAML contains a `components` array, reproduce it verbatim (same rules as other fields — exact values, YAML `null` preserved). When `components` is present, also write the top-level `commands` mirroring the **first** component (schema requires `commands`).
 
 After writing, validate the file is well-formed YAML and contains all required keys before exiting.
 
-**IMPORTANT:** When writing config.yaml from a YAML input file, reproduce the exact values from that file. The `null` YAML values for `typecheck`, `build`, and `telegram` must be written as YAML `null` (or just left as blank/`~`). The `push_policy: hold` must be written as a plain string without quotes in YAML.
+**IMPORTANT:** When writing config.yaml from a YAML input file, reproduce the exact values from that file. The `null` YAML values for `typecheck`, `build`, and `telegram` must be written as YAML `null` (or just left as blank/`~`). The `push_policy: hold` must be written as a plain string without quotes in YAML. If the YAML input contains a `components` array, reproduce it verbatim and exactly — same null-preservation and string rules apply.
 
 ### `checklist.yaml`
 
@@ -136,6 +137,10 @@ Create an empty file with a single header line:
 ## Interactive prompts (when `$ARGUMENTS` is empty)
 
 Use the AskUserQuestion tool for each value that does not have a sensible default. Group related questions where possible (e.g., all three commands in one AskUserQuestion call with multiple questions).
+
+**First ask (AskUserQuestion):** "Does this project have one component or multiple (e.g., separate backend + frontend directories)?"
+- If **one component** → proceed with the existing single-component prompts below.
+- If **multiple components** → for each component, ask its `name`, its directory `path`, and its `test`/`lint`/`typecheck`/`build` commands; collect into a `components` array in the written config.yaml. Set top-level `commands` to the first component's commands.
 
 For `project.name`, use the current directory basename as the default; only ask if the user wants to override.
 
