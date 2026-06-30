@@ -51,6 +51,9 @@ agentic-dev: status
 all counts are zero, print `    (queue is empty)` as a single line under `queue:`
 instead of any individual status lines. See Step 6 for full empty-queue handling.)
 
+  (If config.yaml has a non-empty `components` array, replace the test/lint/typecheck/build lines with one line per component:)
+  component: <name> (<path>) — test: <test> | lint: <lint>
+  (one line per component, in order; otherwise print the four lines below:)
   test command:      <config.commands.test>
   lint command:      <config.commands.lint>
   typecheck:         <config.commands.typecheck or "n/a">
