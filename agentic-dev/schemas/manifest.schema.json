@@ -46,6 +46,21 @@
         "logs_path": { "type": ["string", "null"] }
       }
     },
+    "tests_by_component": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "ran", "passed", "failed", "skipped"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "ran": { "type": "integer", "minimum": 0 },
+          "passed": { "type": "integer", "minimum": 0 },
+          "failed": { "type": "integer", "minimum": 0 },
+          "skipped": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
     "self_check": {
       "type": "object",
       "required": ["lint", "typecheck"],

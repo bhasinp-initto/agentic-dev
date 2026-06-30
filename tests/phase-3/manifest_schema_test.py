@@ -69,6 +69,16 @@ def main():
         print(f"FAIL manifest-accepts-counts-shape: {e.message}")
         results.append(False)
 
+    # Positive: manifest with tests_by_component
+    multi = json.loads((FIX / "manifest-multi-component.json").read_text())
+    try:
+        jsonschema.validate(multi, schema, format_checker=jsonschema.FormatChecker())
+        print("PASS manifest-with-tests-by-component")
+        results.append(True)
+    except jsonschema.ValidationError as e:
+        print(f"FAIL manifest-with-tests-by-component: {e.message}")
+        results.append(False)
+
     sys.exit(0 if all(results) else 1)
 
 

@@ -73,6 +73,12 @@ def main():
             FIXTURE_DIR / "sample-config.yaml",
             load_yaml,
         ),
+        validate(
+            "config-multi-component",
+            SCHEMA_DIR / "config.schema.json",
+            FIXTURE_DIR / "config-multi-component.yaml",
+            load_yaml,
+        ),
     ]
 
     bad_state = {

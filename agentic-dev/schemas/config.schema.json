@@ -27,6 +27,31 @@
         "build": { "type": ["string", "null"] }
       }
     },
+    "components": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "path", "commands"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "path": { "type": "string", "minLength": 1 },
+          "primary_language": { "type": ["string", "null"] },
+          "commands": {
+            "type": "object",
+            "required": ["test", "lint"],
+            "additionalProperties": false,
+            "properties": {
+              "test": { "type": "string", "minLength": 1 },
+              "lint": { "type": "string", "minLength": 1 },
+              "typecheck": { "type": ["string", "null"] },
+              "build": { "type": ["string", "null"] }
+            }
+          }
+        }
+      }
+    },
     "budgets": {
       "type": "object",
       "required": ["wall_clock_minutes_per_goal", "diff_lines_per_goal", "files_touched_per_goal"],

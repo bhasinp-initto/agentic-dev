@@ -14,8 +14,35 @@ python3 - "$MANIFEST" "$KICKOFF" <<'PY'
 import sys, json
 
 mpath, kpath = sys.argv[1:3]
+
 mf = json.load(open(mpath))
 kf = json.load(open(kpath))
+
+# ── Multi-component baseline comparison ──────────────────────────────────────
+kf_components = {c["name"]: c for c in (kf.get("components") or [])}
+mf_by_comp = mf.get("tests_by_component") or []
+
+if kf_components and mf_by_comp:
+    regressions = []
+    compared = []
+    for claim in mf_by_comp:
+        base = (kf_components.get(claim["name"]) or {}).get("baseline_test_counts")
+        if base is None or base.get("passed") is None:
+            continue
+        compared.append(claim["name"])
+        if claim.get("passed", 0) < base["passed"]:
+            regressions.append(
+                f"{claim['name']}: manifest {claim.get('passed', 0)} < baseline {base['passed']}")
+    if regressions:
+        print(json.dumps({"gate": "test-count-check", "result": "fail", "severity": "blocking",
+                          "details": "per-component count regression: " + "; ".join(regressions),
+                          "raw": {"compared": compared}}))
+        sys.exit(1)
+    print(json.dumps({"gate": "test-count-check", "result": "pass", "severity": "blocking",
+                      "details": f"per-component counts >= baseline: {', '.join(compared) or 'none'}",
+                      "raw": {"compared": compared}}))
+    sys.exit(0)
+# ── Single-component path falls through to existing logic below ───────────────
 
 # Read kickoff baseline
 baseline = kf.get("baseline", {}) or {}

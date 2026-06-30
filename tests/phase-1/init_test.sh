@@ -139,3 +139,51 @@ idempotent_ok=1
 echo "PASS idempotence: state.json, config.yaml, queue.yaml all untouched on re-run"
 
 echo "init_test: OK"
+
+# --- Multi-component YAML mode test ---
+echo ""
+echo "=== Multi-component YAML mode ==="
+
+MULTI_FIXTURE="$REPO_ROOT/tests/phase-1/fixtures/config-multi-component.yaml"
+TMP_PROJECT_MULTI="$(mktemp -d -t agentic-init-multi-XXXXXX)"
+# Update trap to also clean up the multi-component temp project
+trap '[ "${KEEP_TMP:-0}" = "1" ] && echo "Preserved tmp projects: $TMP_PROJECT $TMP_PROJECT_MULTI" || { rm -rf "$TMP_PROJECT"; rm -rf "$TMP_PROJECT_MULTI"; }' EXIT
+
+cd "$TMP_PROJECT_MULTI"
+git init -q
+echo "console.log('hello')" > index.js
+git add -A
+git -c user.email=test@test -c user.name=test commit -q -m "initial"
+
+multi_out="$TMP_PROJECT_MULTI/_init_output.txt"
+claude --plugin-dir "$PLUGIN_DIR" \
+  --dangerously-skip-permissions \
+  --add-dir "$(dirname "$MULTI_FIXTURE")" \
+  -p "/agentic-dev:init $MULTI_FIXTURE" >"$multi_out" 2>&1 || true
+
+# Assert: config.yaml exists
+if [[ ! -e ".claude/agentic/config.yaml" ]]; then
+  echo "FAIL missing: .claude/agentic/config.yaml" >&2
+  echo "--- Multi-component init output ---" >&2
+  cat "$multi_out" >&2
+  exit 1
+fi
+echo "PASS exists: .claude/agentic/config.yaml"
+
+# Assert: config.yaml contains `components` key with backend and frontend entries
+python3 - <<'PY'
+import sys, yaml
+from pathlib import Path
+
+data = yaml.safe_load(Path(".claude/agentic/config.yaml").read_text())
+if "components" not in data:
+    print("FAIL config.yaml missing 'components' key", file=sys.stderr)
+    sys.exit(1)
+names = [c["name"] for c in data["components"]]
+if "backend" not in names or "frontend" not in names:
+    print(f"FAIL expected backend+frontend in components, got: {names}", file=sys.stderr)
+    sys.exit(1)
+print(f"PASS config.yaml components: {names}")
+PY
+
+echo "init_test multi-component: OK"

@@ -107,6 +107,14 @@ assert k["project_commands"]["test"] == "npm test", f"commands: {k['project_comm
 print("PASS kickoff field values are correct")
 PY
 
+COMPONENTS_LEN="$(python3 -c "import json;print(len(json.load(open('$KICKOFF')).get('components',[])))")"
+if [[ "$COMPONENTS_LEN" -ge 1 ]]; then
+  echo "PASS kickoff has components array"
+else
+  echo "FAIL: kickoff components: expected >=1 component, got $COMPONENTS_LEN" >&2
+  exit 1
+fi
+
 # Refuses to create duplicate worktree
 if "$WORKTREE_INIT" 2026-05-21-test-goal 2>/dev/null; then
   echo "FAIL: worktree-init did not refuse on duplicate goal-id" >&2

@@ -116,4 +116,82 @@ else
 fi
 [ "${KEEP_TMP:-0}" = "1" ] && echo "Preserved empty tmp project at: $TMP_EMPTY" || rm -rf "$TMP_EMPTY"
 
+# --- Multi-component case ---
+TMP_MULTI="$(mktemp -d -t agentic-status-multi-XXXXXX)"
+trap '[ "${KEEP_TMP:-0}" = "1" ] && echo "Preserved multi tmp project at: $TMP_MULTI" || rm -rf "$TMP_MULTI"' EXIT
+cd "$TMP_MULTI"
+mkdir -p .claude/agentic/intents .claude/agentic/specs
+cat > .claude/agentic/state.json <<'JSON'
+{
+  "schema_version": "0.1",
+  "circuit_breaker": {
+    "state": "running",
+    "halted_reason": null,
+    "halted_at": null,
+    "halted_goal_id": null
+  },
+  "current_goal": null,
+  "last_updated": "2026-06-30T10:00:00Z"
+}
+JSON
+cat > .claude/agentic/queue.yaml <<'YAML'
+schema_version: "0.1"
+goals: []
+YAML
+cat > .claude/agentic/config.yaml <<'YAML'
+schema_version: "0.1"
+project:
+  name: fullstack-app
+  primary_language: typescript
+commands:
+  test: "pytest -q"
+  lint: "ruff check ."
+  typecheck: ~
+  build: ~
+components:
+  - name: backend
+    path: backend
+    primary_language: python
+    commands:
+      test: "pytest -q"
+      lint: "ruff check ."
+      typecheck: "mypy ."
+      build: ~
+  - name: frontend
+    path: frontend
+    primary_language: typescript
+    commands:
+      test: "npm test"
+      lint: "npm run lint"
+      typecheck: "tsc --noEmit"
+      build: "npm run build"
+budgets:
+  wall_clock_minutes_per_goal: 90
+  diff_lines_per_goal: 800
+  files_touched_per_goal: 25
+sensitive_paths: ["auth/**"]
+telegram: ~
+push_policy: hold
+YAML
+multi_output=$(claude --plugin-dir "$PLUGIN_DIR" --dangerously-skip-permissions -p "/agentic-dev:status" 2>&1 || true)
+echo "$multi_output" > multi_status_output.txt
+multi_ok=1
+must_contain_multi() {
+  if ! grep -qE "$1" multi_status_output.txt; then
+    echo "FAIL (multi) missing-pattern: $1" >&2
+    multi_ok=0
+  else
+    echo "PASS (multi) contains: $1"
+  fi
+}
+must_contain_multi "backend.*backend.*pytest"
+must_contain_multi "frontend.*frontend.*npm test"
+if [[ $multi_ok -ne 1 ]]; then
+  echo "--- Multi-component captured output was: ---" >&2
+  cat multi_status_output.txt >&2
+  [ "${KEEP_TMP:-0}" = "1" ] && echo "Preserved multi tmp project at: $TMP_MULTI" || rm -rf "$TMP_MULTI"
+  exit 1
+fi
+[ "${KEEP_TMP:-0}" = "1" ] && echo "Preserved multi tmp project at: $TMP_MULTI" || rm -rf "$TMP_MULTI"
+
 echo "status_test: OK"

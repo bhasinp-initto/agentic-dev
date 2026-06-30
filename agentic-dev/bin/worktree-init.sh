@@ -7,6 +7,8 @@
 # Exits 1 on error.
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 GOAL_ID="${1:-}"
 if [[ -z "$GOAL_ID" ]]; then
   echo "Usage: worktree-init.sh <goal-id>" >&2
@@ -70,10 +72,13 @@ git worktree add "$WORKTREE_PATH" HEAD --quiet
 CONFIG_PATH=".claude/agentic/config.yaml"
 
 # Build kickoff JSON
-python3 - "$GOAL_ID" "$SPEC_PATH" "$ABS_WORKTREE_PATH" "$BASELINE_REF" "$CONFIG_PATH" <<'PY'
+python3 - "$GOAL_ID" "$SPEC_PATH" "$ABS_WORKTREE_PATH" "$BASELINE_REF" "$CONFIG_PATH" "$SCRIPT_DIR" <<'PY'
 import sys, json, yaml, os
-goal_id, spec_path, worktree_abs, baseline_ref, config_path = sys.argv[1:6]
+goal_id, spec_path, worktree_abs, baseline_ref, config_path, script_dir = sys.argv[1:7]
 cfg = yaml.safe_load(open(config_path))
+sys.path.insert(0, script_dir)
+import agentic_components as ac
+components_norm = ac.normalize(cfg)
 
 # Override budgets if the spec carries a Diff budget section with non-default values
 # (P3 simplification: read budgets from config.yaml; per-goal overrides come in v0.3.x)
@@ -88,96 +93,38 @@ budget = {
 # worktree. So we pass an absolute path so the implementer can read it.
 abs_spec_path = os.path.abspath(spec_path)
 
-project_commands = {
-    "test": cfg["commands"]["test"],
-    "lint": cfg["commands"]["lint"],
-    "typecheck": cfg["commands"].get("typecheck"),
-    "build": cfg["commands"].get("build"),
-}
+import subprocess
 
-# Capture baseline test counts by running the test command on the baseline state.
-# The worktree is already at baseline_ref (created from HEAD above).
-baseline_test_counts = None
-test_cmd = project_commands.get("test")
-if test_cmd:
-    import subprocess, re
+def run_baseline(test_cmd, cwd):
+    if not test_cmd:
+        return None
     try:
         proc = subprocess.run(
-            test_cmd,
-            shell=True,
-            capture_output=True,
-            text=True,
-            cwd=worktree_abs,
-            timeout=120,
+            test_cmd, shell=True, capture_output=True, text=True,
+            cwd=cwd, timeout=120,
         )
-        output = proc.stdout + "\n" + proc.stderr
-
-        passed_n = failed_n = skipped_n = None
-
-        # jest / mocha: "Tests:   3 passed, 0 failed"
-        m = re.search(r'Tests?:\s+(\d+)\s+passed', output, re.IGNORECASE)
-        if m:
-            passed_n = int(m.group(1))
-        m2 = re.search(r'Tests?:.*?(\d+)\s+failing', output, re.IGNORECASE)
-        if m2:
-            failed_n = int(m2.group(1))
-        else:
-            m2b = re.search(r'(\d+)\s+failing', output, re.IGNORECASE)
-            if m2b:
-                failed_n = int(m2b.group(1))
-
-        # pytest: "== 3 passed, 0 failed ==" or "=== 3 passed ==="
-        if passed_n is None:
-            m = re.search(r'={3,}\s*(\d+)\s+passed', output, re.IGNORECASE)
-            if m:
-                passed_n = int(m.group(1))
-        if failed_n is None:
-            m = re.search(r'={3,}.*?(\d+)\s+failed', output, re.IGNORECASE)
-            if m:
-                failed_n = int(m.group(1))
-
-        # Generic: "N passed" / "N failed"
-        if passed_n is None:
-            m = re.search(r'(\d+)\s+passed', output, re.IGNORECASE)
-            if m:
-                passed_n = int(m.group(1))
-        if failed_n is None:
-            m = re.search(r'(\d+)\s+failed', output, re.IGNORECASE)
-            if m:
-                failed_n = int(m.group(1))
-
-        # Generic fallback: count lines matching ^(PASS|FAIL|ok)
-        if passed_n is None:
-            pass_lines = [l for l in output.splitlines() if re.match(r'^(PASS|ok)\b', l.strip())]
-            fail_lines = [l for l in output.splitlines() if re.match(r'^FAIL\b', l.strip())]
-            if pass_lines or fail_lines:
-                passed_n = len(pass_lines)
-                failed_n = len(fail_lines)
-
-        # skipped
-        skipped_n = 0
-        m = re.search(r'(\d+)\s+skipped', output, re.IGNORECASE)
-        if m:
-            skipped_n = int(m.group(1))
-
-        if passed_n is not None:
-            baseline_test_counts = {
-                "passed": passed_n,
-                "failed": failed_n if failed_n is not None else 0,
-                "skipped": skipped_n,
-            }
-        else:
-            import sys as _sys
-            print(
-                f"WARNING: worktree-init: could not parse test counts from output of: {test_cmd}",
-                file=_sys.stderr,
-            )
     except Exception as exc:
-        import sys as _sys
-        print(
-            f"WARNING: worktree-init: baseline test run failed: {exc}",
-            file=_sys.stderr,
-        )
+        print(f"WARNING: worktree-init: baseline run failed in {cwd}: {exc}", file=sys.stderr)
+        return None
+    counts = ac.parse_test_counts(proc.stdout + "\n" + proc.stderr)
+    if counts is None:
+        print(f"WARNING: worktree-init: could not parse test counts for: {test_cmd}", file=sys.stderr)
+    return counts
+
+kickoff_components = []
+for comp in components_norm:
+    comp_cwd = os.path.join(worktree_abs, comp["path"]) if comp["path"] not in (".", "") else worktree_abs
+    kickoff_components.append({
+        "name": comp["name"],
+        "path": comp["path"],
+        "commands": comp["commands"],
+        "baseline_test_counts": run_baseline(comp["commands"].get("test"), comp_cwd),
+    })
+
+# Back-compat: first component drives the legacy single-command fields.
+primary = kickoff_components[0]
+project_commands = dict(primary["commands"])
+baseline_test_counts = primary["baseline_test_counts"]
 
 # Parse the spec for a `# Walkthrough` section (added in 1.4.0).
 # Shape expected in spec body (free-form, parsed leniently):
@@ -241,6 +188,7 @@ kickoff = {
     "baseline": {
         "test_counts": baseline_test_counts,
     },
+    "components": kickoff_components,
     "walkthrough": walkthrough,
 }
 
