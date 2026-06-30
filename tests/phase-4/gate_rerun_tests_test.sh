@@ -232,6 +232,96 @@ test_failed_count_checked() {
   fi
 }
 
+# ── Test 5: multi-component path — one component count mismatches → fail ──────
+#
+# Two components (comp-a, comp-b). Only comp-b is in scope_check (touched).
+# Manifest claims comp-b: 5 passed. Mock runner outputs "3 passed". → fail.
+# Gate must return result:fail, severity:blocking, details containing "comp-b".
+
+test_multicomp_mismatch() {
+  local tmp
+  tmp="$(mktemp -d)"
+  trap "rm -rf '$tmp'" RETURN
+
+  # Create component directories in worktree
+  mkdir -p "$tmp/comp-a" "$tmp/comp-b"
+
+  # Mock runners: comp-a outputs 3 passed (matches); comp-b outputs 3 passed (claim says 5 → mismatch)
+  local runner_a="$tmp/comp-a/run-tests.sh"
+  local runner_b="$tmp/comp-b/run-tests.sh"
+  make_mock_runner "$runner_a" "Tests: 3 passed" 0
+  make_mock_runner "$runner_b" "Tests: 3 passed" 0
+
+  local kickoff="$tmp/kickoff.json"
+  local manifest="$tmp/manifest.json"
+
+  # Kickoff with components array (no project_commands.test — multi-comp path)
+  cat > "$kickoff" <<EOF
+{
+  "goal_id": "2026-05-21-multicomp-goal",
+  "spec_path": "/tmp/spec.md",
+  "baseline_ref": "abc1234",
+  "budget": {"wall_clock_minutes_per_goal": 30, "diff_lines_per_goal": 100, "files_touched_per_goal": 5},
+  "sensitive_paths": [],
+  "project_commands": {"test": null, "lint": null, "typecheck": null, "build": null},
+  "components": [
+    {"name": "comp-a", "path": "comp-a", "commands": {"test": "bash $runner_a", "lint": null, "typecheck": null, "build": null}},
+    {"name": "comp-b", "path": "comp-b", "commands": {"test": "bash $runner_b", "lint": null, "typecheck": null, "build": null}}
+  ]
+}
+EOF
+
+  # Manifest: comp-b claims 5 passed; mock outputs 3 → mismatch
+  # scope_check.in_spec_files touches only comp-b
+  cat > "$manifest" <<EOF
+{
+  "goal_id": "2026-05-21-multicomp-goal",
+  "worktree_path": "$tmp",
+  "baseline_ref": "abc1234",
+  "head_ref": "def5678",
+  "status": "complete",
+  "started_at": "2026-05-21T10:05:00Z",
+  "completed_at": "2026-05-21T10:20:00Z",
+  "tests": {"ran": 5, "passed": 5, "failed": 0, "skipped": 0},
+  "tests_by_component": [
+    {"name": "comp-a", "passed": 3, "failed": 0},
+    {"name": "comp-b", "passed": 5, "failed": 0}
+  ],
+  "scope_check": {
+    "in_spec_files": ["comp-b/some-file.py"],
+    "out_of_spec_files": []
+  }
+}
+EOF
+
+  local out
+  out="$("$GATE" "$manifest" "$kickoff")" || true
+
+  local result
+  result="$(echo "$out" | python3 -c 'import sys,json; print(json.load(sys.stdin)["result"])')"
+  if [[ "$result" == "fail" ]]; then
+    pass "multicomp-mismatch-result-fail"
+  else
+    fail "multicomp-mismatch-result-fail" "expected fail, got: $result (raw: $out)"
+  fi
+
+  local severity
+  severity="$(echo "$out" | python3 -c 'import sys,json; print(json.load(sys.stdin)["severity"])')"
+  if [[ "$severity" == "blocking" ]]; then
+    pass "multicomp-mismatch-severity-blocking"
+  else
+    fail "multicomp-mismatch-severity-blocking" "expected blocking, got: $severity (raw: $out)"
+  fi
+
+  local details
+  details="$(echo "$out" | python3 -c 'import sys,json; print(json.load(sys.stdin)["details"])')"
+  if echo "$details" | grep -q "comp-b"; then
+    pass "multicomp-mismatch-details-has-comp-name"
+  else
+    fail "multicomp-mismatch-details-has-comp-name" "expected 'comp-b' in details, got: $details (raw: $out)"
+  fi
+}
+
 # ── main ──────────────────────────────────────────────────────────────────────
 
 require_gate
@@ -240,6 +330,7 @@ test_match_pass
 test_mismatch_fail
 test_unparseable_inconclusive
 test_failed_count_checked
+test_multicomp_mismatch
 
 echo ""
 echo "Results: $PASS passed, $FAIL failed"

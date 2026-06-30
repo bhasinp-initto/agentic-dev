@@ -7,6 +7,8 @@
 # JSON output to stdout.
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 MANIFEST="${1:-}"
 KICKOFF="${2:-}"
 if [[ -z "$MANIFEST" || -z "$KICKOFF" ]]; then
@@ -14,12 +16,73 @@ if [[ -z "$MANIFEST" || -z "$KICKOFF" ]]; then
   exit 1
 fi
 
-python3 - "$MANIFEST" "$KICKOFF" <<'PY'
+python3 - "$MANIFEST" "$KICKOFF" "$SCRIPT_DIR" <<'PY'
 import sys, json, subprocess, re
 
 mpath, kpath = sys.argv[1:3]
 mf = json.load(open(mpath))
 kf = json.load(open(kpath))
+
+import sys, os
+script_dir = sys.argv[3]
+sys.path.insert(0, script_dir)
+import agentic_components as ac
+
+kf_components = kf.get("components")
+mf_by_comp = {c["name"]: c for c in (mf.get("tests_by_component") or [])}
+
+if kf_components and mf_by_comp:
+    # ── Multi-component path ────────────────────────────────────────────────
+    worktree_path = mf.get("worktree_path")
+    changed = (mf.get("scope_check", {}) or {}).get("in_spec_files", []) + \
+              (mf.get("scope_check", {}) or {}).get("out_of_spec_files", [])
+    touched, _unmatched = ac.select_touched(kf_components, changed)
+
+    if not worktree_path:
+        print(json.dumps({"gate": "rerun-tests", "result": "inconclusive",
+                          "severity": "warning",
+                          "details": "manifest.worktree_path missing"}))
+        sys.exit(0)
+
+    import subprocess, re
+    mismatches = []
+    checked = []
+    for comp in touched:
+        test_cmd = comp["commands"].get("test")
+        claim = mf_by_comp.get(comp["name"])
+        if not test_cmd or claim is None:
+            continue
+        cwd = os.path.join(worktree_path, comp["path"]) if comp["path"] not in (".", "") else worktree_path
+        try:
+            proc = subprocess.run(test_cmd, shell=True, capture_output=True,
+                                  text=True, cwd=cwd, timeout=300)
+        except Exception as exc:
+            print(json.dumps({"gate": "rerun-tests", "result": "inconclusive",
+                              "severity": "warning",
+                              "details": f"{comp['name']}: test run failed: {exc}"}))
+            sys.exit(0)
+        counts = ac.parse_test_counts(proc.stdout + "\n" + proc.stderr)
+        if counts is None:
+            print(json.dumps({"gate": "rerun-tests", "result": "inconclusive",
+                              "severity": "warning",
+                              "details": f"{comp['name']}: could not parse counts for {test_cmd}"}))
+            sys.exit(0)
+        checked.append(comp["name"])
+        if counts["passed"] != claim.get("passed") or counts["failed"] != claim.get("failed", 0):
+            mismatches.append(
+                f"{comp['name']}: actual {counts['passed']}p/{counts['failed']}f vs "
+                f"manifest {claim.get('passed')}p/{claim.get('failed', 0)}f")
+
+    if mismatches:
+        print(json.dumps({"gate": "rerun-tests", "result": "fail", "severity": "blocking",
+                          "details": "per-component test mismatch: " + "; ".join(mismatches),
+                          "raw": {"checked": checked}}))
+        sys.exit(1)
+    print(json.dumps({"gate": "rerun-tests", "result": "pass", "severity": "blocking",
+                      "details": f"per-component test counts match: {', '.join(checked) or 'no touched components'}",
+                      "raw": {"checked": checked}}))
+    sys.exit(0)
+# ── Single-component path falls through to existing logic below ─────────────
 
 test_cmd = (kf.get("project_commands") or {}).get("test")
 worktree_path = mf.get("worktree_path")
