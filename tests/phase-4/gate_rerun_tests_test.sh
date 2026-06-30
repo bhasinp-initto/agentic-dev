@@ -322,6 +322,91 @@ EOF
   fi
 }
 
+# ── Test 6: single "." component travels the multi-component branch → pass ────
+#
+# A project normalized to ONE component with path "." still enters the
+# multi-component branch (kf_components truthy, mf_by_comp truthy).
+# Files in scope_check.in_spec_files are owned by "." → selected.
+# Gate must run the test command at the worktree root and return pass.
+
+test_single_dot_component_pass() {
+  local tmp
+  tmp="$(mktemp -d)"
+  trap "rm -rf '$tmp'" RETURN
+
+  local runner="$tmp/mock-test.sh"
+  local kickoff="$tmp/kickoff.json"
+  local manifest="$tmp/manifest.json"
+
+  make_mock_runner "$runner" "Tests: 7 passed" 0
+
+  # Kickoff with ONE component {path: "."}
+  cat > "$kickoff" <<EOF
+{
+  "goal_id": "2026-05-21-dot-comp-goal",
+  "spec_path": "/tmp/spec.md",
+  "baseline_ref": "abc1234",
+  "budget": {"wall_clock_minutes_per_goal": 30, "diff_lines_per_goal": 100, "files_touched_per_goal": 5},
+  "sensitive_paths": [],
+  "project_commands": {"test": null, "lint": null, "typecheck": null, "build": null},
+  "components": [
+    {"name": "root", "path": ".", "commands": {"test": "bash $runner", "lint": null, "typecheck": null, "build": null},
+     "baseline_test_counts": {"passed": 7, "failed": 0, "skipped": 0}}
+  ]
+}
+EOF
+
+  # Manifest: "root" claims 7 passed; scope_check touches "src/app.py" (owned by ".")
+  cat > "$manifest" <<EOF
+{
+  "goal_id": "2026-05-21-dot-comp-goal",
+  "worktree_path": "$tmp",
+  "baseline_ref": "abc1234",
+  "head_ref": "def5678",
+  "status": "complete",
+  "started_at": "2026-05-21T10:05:00Z",
+  "completed_at": "2026-05-21T10:20:00Z",
+  "tests": {"ran": 7, "passed": 7, "failed": 0, "skipped": 0},
+  "tests_by_component": [
+    {"name": "root", "passed": 7, "failed": 0}
+  ],
+  "scope_check": {
+    "in_spec_files": ["src/app.py"],
+    "out_of_spec_files": []
+  }
+}
+EOF
+
+  local out
+  out="$("$GATE" "$manifest" "$kickoff")"
+
+  local result
+  result="$(echo "$out" | python3 -c 'import sys,json; print(json.load(sys.stdin)["result"])')"
+  if [[ "$result" == "pass" ]]; then
+    pass "single-dot-comp-result-pass"
+  else
+    fail "single-dot-comp-result-pass" "expected pass, got: $result (raw: $out)"
+  fi
+
+  # Verify raw.checked contains "root"
+  local checked
+  checked="$(echo "$out" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("raw",{}).get("checked","missing"))')"
+  if echo "$checked" | grep -q "root"; then
+    pass "single-dot-comp-raw-checked"
+  else
+    fail "single-dot-comp-raw-checked" "expected 'root' in raw.checked, got: $checked (raw: $out)"
+  fi
+
+  # Verify raw.unmatched_files is an empty list (src/app.py is owned by ".")
+  local unmatched
+  unmatched="$(echo "$out" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("raw",{}).get("unmatched_files","missing"))')"
+  if [[ "$unmatched" == "[]" ]]; then
+    pass "single-dot-comp-no-unmatched"
+  else
+    fail "single-dot-comp-no-unmatched" "expected unmatched_files=[], got: $unmatched (raw: $out)"
+  fi
+}
+
 # ── main ──────────────────────────────────────────────────────────────────────
 
 require_gate
@@ -331,6 +416,7 @@ test_mismatch_fail
 test_unparseable_inconclusive
 test_failed_count_checked
 test_multicomp_mismatch
+test_single_dot_component_pass
 
 echo ""
 echo "Results: $PASS passed, $FAIL failed"

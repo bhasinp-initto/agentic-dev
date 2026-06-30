@@ -268,6 +268,83 @@ test_per_component_regression() {
   fi
 }
 
+# ── Test 5: single "." component travels the multi-component branch → pass ────
+#
+# A kickoff with ONE component {path: "."} and a matching manifest
+# tests_by_component entry should produce result:pass.
+
+make_kickoff_dot_component() {
+  local path="$1"
+  cat > "$path" <<'EOF'
+{
+  "goal_id": "2026-05-21-dot-comp-goal",
+  "spec_path": "/tmp/spec.md",
+  "baseline_ref": "abc1234",
+  "budget": {
+    "wall_clock_minutes_per_goal": 30,
+    "diff_lines_per_goal": 100,
+    "files_touched_per_goal": 5
+  },
+  "sensitive_paths": [],
+  "project_commands": {"test": null, "lint": null, "typecheck": null, "build": null},
+  "components": [
+    { "name": "root", "path": ".", "baseline_test_counts": { "passed": 5, "failed": 0, "skipped": 0 } }
+  ]
+}
+EOF
+}
+
+make_manifest_dot_component() {
+  local path="$1"
+  cat > "$path" <<'EOF'
+{
+  "goal_id": "2026-05-21-dot-comp-goal",
+  "worktree_path": "/tmp/worktree",
+  "baseline_ref": "abc1234",
+  "head_ref": "def5678",
+  "status": "complete",
+  "started_at": "2026-05-21T10:05:00Z",
+  "completed_at": "2026-05-21T10:20:00Z",
+  "tests_by_component": [
+    { "name": "root", "passed": 7, "failed": 0 }
+  ]
+}
+EOF
+}
+
+test_single_dot_component_pass() {
+  local tmp
+  tmp="$(mktemp -d)"
+  trap "rm -rf '$tmp'" RETURN
+
+  local kickoff="$tmp/kickoff.json"
+  local manifest="$tmp/manifest.json"
+
+  # root: manifest passed=7 >= baseline passed=5 → pass
+  make_kickoff_dot_component "$kickoff"
+  make_manifest_dot_component "$manifest"
+
+  local out
+  out="$("$GATE" "$manifest" "$kickoff")"
+  local result
+  result="$(echo "$out" | python3 -c 'import sys,json; print(json.load(sys.stdin)["result"])')"
+
+  if [[ "$result" == "pass" ]]; then
+    pass "dot-comp-count-pass"
+  else
+    fail "dot-comp-count-pass" "expected pass, got: $result (raw: $out)"
+  fi
+
+  # details should mention "root"
+  local details
+  details="$(echo "$out" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("details",""))')"
+  if echo "$details" | grep -q "root"; then
+    pass "dot-comp-count-details-has-root"
+  else
+    fail "dot-comp-count-details-has-root" "expected 'root' in details, got: $details (raw: $out)"
+  fi
+}
+
 # ── main ──────────────────────────────────────────────────────────────────────
 
 require_gate
@@ -276,6 +353,7 @@ test_counts_increased
 test_counts_decreased
 test_baseline_null_inconclusive
 test_per_component_regression
+test_single_dot_component_pass
 
 echo ""
 echo "Results: $PASS passed, $FAIL failed"

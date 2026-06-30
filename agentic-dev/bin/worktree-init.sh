@@ -93,7 +93,7 @@ budget = {
 # worktree. So we pass an absolute path so the implementer can read it.
 abs_spec_path = os.path.abspath(spec_path)
 
-import subprocess, os as _os
+import subprocess
 
 def run_baseline(test_cmd, cwd):
     if not test_cmd:
@@ -113,7 +113,7 @@ def run_baseline(test_cmd, cwd):
 
 kickoff_components = []
 for comp in components_norm:
-    comp_cwd = _os.path.join(worktree_abs, comp["path"]) if comp["path"] not in (".", "") else worktree_abs
+    comp_cwd = os.path.join(worktree_abs, comp["path"]) if comp["path"] not in (".", "") else worktree_abs
     kickoff_components.append({
         "name": comp["name"],
         "path": comp["path"],

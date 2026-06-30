@@ -11,13 +11,10 @@ if [[ -z "$MANIFEST" || -z "$KICKOFF" ]]; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-python3 - "$MANIFEST" "$KICKOFF" "$SCRIPT_DIR" <<'PY'
-import sys, json, os
+python3 - "$MANIFEST" "$KICKOFF" <<'PY'
+import sys, json
 
 mpath, kpath = sys.argv[1:3]
-script_dir = sys.argv[3]
-sys.path.insert(0, script_dir)
-import agentic_components as ac
 
 mf = json.load(open(mpath))
 kf = json.load(open(kpath))
