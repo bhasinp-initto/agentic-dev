@@ -43,6 +43,13 @@ check "success-verdict" "$(field "$R" verdict)" "blocking"
 check "success-role" "$(field "$R" reviewer_role)" "adversary"
 check "success-not-skipped" "$(field "$R" skipped)" "None"
 
+# AGENTIC_CODEX_RAW_OUT: raw companion .result is preserved alongside the adapted verdict
+RAW_OUT="$TMP/raw-out.json"
+R1B="$(AGENTIC_CODEX_RAW_OUT="$RAW_OUT" bash "$BRIDGE" review 2026-07-26-demo "$BASE" "$WT" "$HEAD_SHA")"
+check "raw-out-adapted-still-blocking" "$(field "$R1B" verdict)" "blocking"
+if [ -f "$RAW_OUT" ]; then echo "PASS raw-out-file-exists"; else echo "FAIL raw-out-file-exists"; fails=$((fails+1)); fi
+check "raw-out-file-verdict" "$(field "$(cat "$RAW_OUT" 2>/dev/null)" verdict)" "needs-attention"
+
 # head_mismatch
 R2="$(bash "$BRIDGE" review 2026-07-26-demo "$BASE" "$WT" "deadbeef")"
 check "head-mismatch" "$(field "$R2" reason_code)" "head_mismatch"

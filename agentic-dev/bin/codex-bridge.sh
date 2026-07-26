@@ -142,6 +142,13 @@ jsonschema.validate(json.load(open(sys.argv[1])), json.load(open(sys.argv[2])))
   local reviewed_at; reviewed_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   python3 "$SCRIPT_DIR/codex_adapter.py" adapt "$result" \
     --goal-id "$goal_id" --reviewed-at "$reviewed_at"
+
+  # Optional raw-copy: caller sets AGENTIC_CODEX_RAW_OUT to preserve the raw
+  # companion .result (pre-adaptation) alongside the adapted verdict this
+  # function printed above. Best-effort only — never affects review's stdout
+  # or its always-exit-0 contract.
+  [ -n "${AGENTIC_CODEX_RAW_OUT:-}" ] && cp "$result" "$AGENTIC_CODEX_RAW_OUT" 2>/dev/null || true
+
   rm -f "$out" "$result"
 }
 

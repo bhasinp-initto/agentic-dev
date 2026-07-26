@@ -211,20 +211,25 @@ failure falls back to the Claude adversary result and **never blocks**.
    and diff envelope (`.claude/agentic/diffs/<goal-id>.json`):
    - `worktree_path` — the manifest's `worktree_path` (authoritative worktree).
    - `expected_head` — the manifest's `head_ref`.
-   - `base_sha` — the diff envelope's base ref.
+   - `base_sha` — the diff envelope's `baseline_ref` field (see
+     `agentic-dev/schemas/diff-envelope.schema.json`).
 
 4. **Run the Codex adversary:**
    ```bash
+   AGENTIC_CODEX_RAW_OUT=".claude/agentic/reviewer-verdicts/<goal-id>.codex.raw.json" \
    ${CLAUDE_PLUGIN_ROOT}/bin/codex-bridge.sh review \
      "<goal-id>" "<base_sha>" "<worktree_path>" "<expected_head>"
    ```
-   The bridge always exits 0 and prints EITHER an adapted reviewer-verdict OR a
+   Setting `AGENTIC_CODEX_RAW_OUT` tells the bridge to also copy the raw
+   companion `.result` payload to that path on the success path (best-effort;
+   never changes the bridge's stdout or its always-exit-0 behavior). The
+   bridge always exits 0 and prints EITHER an adapted reviewer-verdict OR a
    `{"skipped":true,"reason_code":...}` object. If `skipped` is present: log
    `codex adversary: skipped (<reason_code>)` to `validation-log.txt`, note it in
    the summary, and proceed with the Claude adversary verdict unchanged.
-   Otherwise write the adapted verdict to
-   `.claude/agentic/reviewer-verdicts/<goal-id>.codex.json` and the raw companion
-   `.result` (if you captured it) to `<goal-id>.codex.raw.json`.
+   Otherwise capture the adapted stdout to
+   `.claude/agentic/reviewer-verdicts/<goal-id>.codex.json` — the raw companion
+   `.result` will already be at `<goal-id>.codex.raw.json` from the env var above.
 
 5. **Merge into one aggregate verdict** (route ONCE on the aggregate — do not
    route each source separately):
@@ -239,13 +244,18 @@ failure falls back to the Claude adversary result and **never blocks**.
    effective adversary verdict and the returned `concerns` as the concern set:
    - aggregate `clean` → treat as the both-clean case (primary + Claude + Codex).
    - aggregate `concern` → route the concerns to the auto-fix queue (existing rules).
-   - aggregate `blocking` → immediate escalation (existing rules).
+   - aggregate `blocking` → **immediate escalation.** Do this explicitly — do NOT
+     fall through to the concern/auto-fix branch. Perform the SAME steps as this
+     file's own `### verdict: "blocking"` section:
+     1. Call `bin/generate-escalation.sh <goal-id> reviewer_blocking`
+     2. Call `bin/telegram-notify.sh blocking "Goal <goal-id> has blocking reviewer concerns"`
+     3. Exit 1
 
 Codex failure **never blocks** the pipeline: if `codex_adapter.py merge` itself
 fails (non-zero exit) — or any earlier step in this subsection skipped or
 errored — the Claude adversary verdict stands alone and routing proceeds
-exactly as it does without Codex; log the failure to `validation-log.txt` and
-continue.
+exactly as it does without Codex; log `codex adversary: skipped (merge_failed)`
+to `validation-log.txt` and continue.
 
 **If the adversary verdict is also `clean`:**
 - Print: `Goal <goal-id> clean (primary + adversary)`
