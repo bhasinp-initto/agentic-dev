@@ -87,7 +87,12 @@ review() {
   local disc ready companion schema
   disc="$(discover)"
   ready="$(echo "$disc" | python3 -c 'import json,sys;print(json.load(sys.stdin)["ready"])')"
-  if [ "$ready" != "True" ]; then echo "$disc"; return 0; fi
+  if [ "$ready" != "True" ]; then
+    local dc dd
+    dc="$(echo "$disc" | python3 -c 'import json,sys;print(json.load(sys.stdin).get("reason_code",""))')"
+    dd="$(echo "$disc" | python3 -c 'import json,sys;print(json.load(sys.stdin).get("detail",""))')"
+    _skip "$dc" "$dd"
+  fi
   companion="$(echo "$disc" | python3 -c 'import json,sys;print(json.load(sys.stdin)["companion_path"])')"
   schema="$(echo "$disc" | python3 -c 'import json,sys;print(json.load(sys.stdin)["schema_path"])')"
 

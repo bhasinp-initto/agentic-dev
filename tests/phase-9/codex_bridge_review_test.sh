@@ -71,4 +71,11 @@ JS
 R6="$(bash "$BRIDGE" review 2026-07-26-demo "$BASE" "$WT" "$HEAD_SHA")"
 check "parse-error" "$(field "$R6" reason_code)" "parse_error"
 
+# discover not-ready (plugin disabled) => proper skip shape, not raw discover JSON
+printf '{"enabledPlugins":{"codex@openai-codex":false}}' > "$TMP/settings.json"
+R7="$(bash "$BRIDGE" review 2026-07-26-demo "$BASE" "$WT" "$HEAD_SHA")"
+check "plugin-disabled-skipped" "$(field "$R7" skipped)" "True"
+check "plugin-disabled-reason" "$(field "$R7" reason_code)" "plugin_disabled"
+printf '{"enabledPlugins":{"codex@openai-codex":true}}' > "$TMP/settings.json"
+
 if [ "$fails" -eq 0 ]; then echo "ALL PASS"; exit 0; else echo "$fails FAILED"; exit 1; fi
