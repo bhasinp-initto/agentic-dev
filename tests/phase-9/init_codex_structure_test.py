@@ -11,6 +11,11 @@ REQUIRED = [
     "reason_code",
     "/codex:setup",
     "Claude-only",
+    "not_authenticated",
+    "plugin_disabled",
+    "no_valid_version",
+    "missing_files",
+    "!codex login",
 ]
 
 
