@@ -59,6 +59,54 @@ def _cmd_adapt(args):
     print(json.dumps(adapt(review_output, args.goal_id, args.reviewed_at)))
 
 
+_CLAUDE_PREFIX = "[claude-adversary] "
+
+
+def _prefix_claude(concerns):
+    out = []
+    for c in concerns:
+        d = c.get("description", "")
+        if not d.startswith(_CLAUDE_PREFIX) and not d.startswith("[codex-adversary] "):
+            c = {**c, "description": _CLAUDE_PREFIX + d}
+        out.append(c)
+    return out
+
+
+def merge(claude, codex):
+    """Aggregate a Claude-adversary verdict and a Codex verdict into one."""
+    claude_concerns = _prefix_claude(claude.get("concerns") or [])
+    codex_concerns = list(codex.get("concerns") or [])
+    concerns = claude_concerns + codex_concerns
+
+    any_blocking = (
+        claude.get("verdict") == "blocking"
+        or codex.get("verdict") == "blocking"
+        or any(c.get("severity") == "blocking" for c in concerns)
+    )
+    if any_blocking:
+        verdict = "blocking"
+    elif concerns or claude.get("verdict") == "concern" or codex.get("verdict") == "concern":
+        verdict = "concern"
+    else:
+        verdict = "clean"
+
+    # Post-merge invariants.
+    if verdict == "clean" and concerns:
+        raise ValueError("clean verdict with non-empty concerns")
+    if verdict == "concern" and any(c.get("severity") == "blocking" for c in concerns):
+        raise ValueError("concern verdict with a blocking-severity concern")
+    if verdict == "blocking" and not any_blocking:
+        raise ValueError("blocking verdict with no blocking reason")
+
+    return {"verdict": verdict, "concerns": concerns}
+
+
+def _cmd_merge(args):
+    claude = json.loads(open(args.claude).read())
+    codex = json.loads(open(args.codex).read())
+    print(json.dumps(merge(claude, codex)))
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(prog="codex_adapter")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -68,6 +116,11 @@ def main(argv=None):
     a.add_argument("--goal-id", required=True)
     a.add_argument("--reviewed-at", required=True)
     a.set_defaults(func=_cmd_adapt)
+
+    m = sub.add_parser("merge")
+    m.add_argument("claude")
+    m.add_argument("codex")
+    m.set_defaults(func=_cmd_merge)
 
     args = p.parse_args(argv)
     args.func(args)
