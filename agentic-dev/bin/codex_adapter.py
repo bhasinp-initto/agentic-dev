@@ -5,7 +5,6 @@ Stdlib only. Two entry points: adapt() and merge() (merge added in Task 3).
 """
 import argparse
 import json
-import sys
 
 SCHEMA_VERSION = "0.1"
 

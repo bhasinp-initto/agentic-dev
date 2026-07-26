@@ -1,6 +1,8 @@
 """Unit tests for codex_adapter.adapt() — severity/verdict/field mapping."""
 import json
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -72,6 +74,43 @@ def results():
         out.append(("schema-valid", True))
     except jsonschema.ValidationError as e:
         out.append((f"schema-valid ({e.message})", False))
+
+    # mixed-severity: low + critical => verdict is blocking, 2 concerns with correct severities
+    v = ca.adapt({"verdict": "needs-attention", "summary": "x",
+                  "findings": [finding("low"), finding("critical")], "next_steps": []}, GID, TS)
+    out.append(("mixed-severity-verdict-blocking", v["verdict"] == "blocking"))
+    out.append(("mixed-severity-count-2", len(v["concerns"]) == 2))
+    out.append(("mixed-severity-low-severity", v["concerns"][0]["severity"] == "concern"))
+    out.append(("mixed-severity-critical-severity", v["concerns"][1]["severity"] == "blocking"))
+
+    # CLI entrypoint: subprocess.run adapt command, parse JSON output
+    try:
+        codex_adapter_path = REPO_ROOT / "agentic-dev" / "bin" / "codex_adapter.py"
+        review_json = {"verdict": "needs-attention", "summary": "CLI test",
+                       "findings": [finding("high")], "next_steps": []}
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as tf:
+            json.dump(review_json, tf)
+            tmpfile = tf.name
+        try:
+            result = subprocess.run(
+                [sys.executable, str(codex_adapter_path), "adapt", tmpfile,
+                 "--goal-id", "2026-07-26-demo", "--reviewed-at", "2026-07-26T00:00:00Z"],
+                capture_output=True, text=True
+            )
+            if result.returncode == 0:
+                output = json.loads(result.stdout)
+                cli_verdict_ok = output["verdict"] == "blocking"
+                cli_role_ok = output["reviewer_role"] == "adversary"
+                out.append(("cli-entrypoint-verdict", cli_verdict_ok))
+                out.append(("cli-entrypoint-role", cli_role_ok))
+            else:
+                out.append(("cli-entrypoint-verdict", False))
+                out.append(("cli-entrypoint-role", False))
+        finally:
+            Path(tmpfile).unlink()
+    except Exception as e:
+        out.append((f"cli-entrypoint-verdict (error: {e})", False))
+        out.append((f"cli-entrypoint-role (error: {e})", False))
 
     return out
 
