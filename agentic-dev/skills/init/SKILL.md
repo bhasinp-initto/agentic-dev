@@ -104,6 +104,7 @@ Required fields and their derivations:
 - `telegram`: default `null` unless overridden in input
 - `push_policy`: default `"hold"` unless overridden in input
 - `components` (optional): if the input YAML contains a `components` array, reproduce it verbatim (same rules as other fields — exact values, YAML `null` preserved). When `components` is present, also write the top-level `commands` mirroring the **first** component (schema requires `commands`).
+- `review.codex_adversary`: ALWAYS write `"auto"` (literal constant) for new projects — this is unconditional and does not come from user input or a YAML override. See "Codex adversary onboarding" below.
 
 After writing, validate the file is well-formed YAML and contains all required keys before exiting.
 
@@ -155,6 +156,29 @@ telegram:
 ```
 
 The pipeline never blocks on notification failures regardless of configuration.
+
+## Codex adversary onboarding
+
+agentic-dev can use Codex (the `codex@openai-codex` plugin) as a second,
+independent-model adversary during review. It is optional and degrades to
+Claude-only when Codex is absent.
+
+1. Detect Codex readiness:
+   ```bash
+   ${CLAUDE_PLUGIN_ROOT}/bin/codex-bridge.sh preflight
+   ```
+2. Always write this into the generated `config.yaml` (new projects opt in):
+   ```yaml
+   review:
+     codex_adversary: auto
+   ```
+3. If preflight `ready` is not `true`, print a recommendation keyed on
+   `reason_code` and note the adversary runs **Claude-only** until Codex is enabled:
+   - `plugin_disabled` / `no_valid_version` / `missing_files` → "Install the Codex
+     plugin (openai-codex) to enable cross-model adversarial review."
+   - `cli_missing` → "Run `/codex:setup` to install the Codex CLI."
+   - `not_authenticated` → "Run `!codex login` to authenticate Codex."
+   `init` only detects and recommends — it cannot install another plugin for you.
 
 ## Output
 
