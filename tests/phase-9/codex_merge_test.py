@@ -47,6 +47,14 @@ def main():
     m = ca.merge(rv("concern", [concern("blocking")]), rv("clean", []))
     out.append(("blocking-severity-forces-blocking", m["verdict"] == "blocking"))
 
+    # invariant: concern verdict must have at least one concern
+    passed_concern_empty_raises = False
+    try:
+        ca.merge(rv("concern", []), rv("clean", []))
+    except ValueError:
+        passed_concern_empty_raises = True
+    out.append(("concern-empty-raises", passed_concern_empty_raises))
+
     ok = True
     for name, passed in out:
         print(f"{'PASS' if passed else 'FAIL'} {name}")

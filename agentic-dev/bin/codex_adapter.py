@@ -93,6 +93,8 @@ def merge(claude, codex):
     # Post-merge invariants.
     if verdict == "clean" and concerns:
         raise ValueError("clean verdict with non-empty concerns")
+    if verdict == "concern" and not concerns:
+        raise ValueError("concern verdict with no concerns")
     if verdict == "concern" and any(c.get("severity") == "blocking" for c in concerns):
         raise ValueError("concern verdict with a blocking-severity concern")
     if verdict == "blocking" and not any_blocking:
