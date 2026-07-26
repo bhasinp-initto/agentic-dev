@@ -1,0 +1,15 @@
+schema_version: "0.1"
+project:
+  name: demo
+  primary_language: python
+commands:
+  test: pytest
+  lint: ruff check .
+budgets:
+  wall_clock_minutes_per_goal: 30
+  diff_lines_per_goal: 400
+  files_touched_per_goal: 20
+sensitive_paths: []
+push_policy: hold
+review:
+  codex_adversary: auto

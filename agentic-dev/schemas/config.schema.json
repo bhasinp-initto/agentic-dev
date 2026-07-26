@@ -74,6 +74,18 @@
         "chat_id": { "type": ["string", "integer"] }
       }
     },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "codex_adversary": {
+          "type": "string",
+          "enum": ["auto", "off"],
+          "default": "off",
+          "description": "auto = augment the adversary pass with Codex when the bridge reports ready; off (and absent) = never call Codex."
+        }
+      }
+    },
     "push_policy": {
       "type": "string",
       "enum": ["hold", "auto"],
