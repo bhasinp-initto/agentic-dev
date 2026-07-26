@@ -187,6 +187,66 @@ No preamble. No code fences. Just JSON.
 
 Capture and validate the adversary's JSON output (same malformed-output handling pattern). Write to `.claude/agentic/reviewer-verdicts/<goal-id>.adversary.json`.
 
+#### Augment with Codex (2.0.0+)
+
+After the Claude adversary verdict is captured, optionally augment it with a
+second, independent-model adversary (Codex). This is **pure upside** — any
+failure falls back to the Claude adversary result and **never blocks**.
+
+1. **Read the toggle.** From `.claude/agentic/config.yaml`, read
+   `review.codex_adversary`. If the `review` block is **absent** or the value is
+   `off`, skip this entire subsection and proceed with the Claude adversary
+   verdict unchanged (today's behavior).
+
+2. **Preflight.** Run:
+   ```bash
+   ${CLAUDE_PLUGIN_ROOT}/bin/codex-bridge.sh preflight
+   ```
+   Parse the JSON. If `ready` is not `true`, log
+   `codex adversary: skipped (<reason_code>)` to
+   `.claude/agentic/validation-log.txt`, note it in the final summary, and
+   proceed with the Claude adversary verdict unchanged.
+
+3. **Gather preconditions** from the manifest (`.claude/agentic/manifests/<goal-id>.json`)
+   and diff envelope (`.claude/agentic/diffs/<goal-id>.json`):
+   - `worktree_path` — the manifest's `worktree_path` (authoritative worktree).
+   - `expected_head` — the manifest's `head_ref`.
+   - `base_sha` — the diff envelope's base ref.
+
+4. **Run the Codex adversary:**
+   ```bash
+   ${CLAUDE_PLUGIN_ROOT}/bin/codex-bridge.sh review \
+     "<goal-id>" "<base_sha>" "<worktree_path>" "<expected_head>"
+   ```
+   The bridge always exits 0 and prints EITHER an adapted reviewer-verdict OR a
+   `{"skipped":true,"reason_code":...}` object. If `skipped` is present: log
+   `codex adversary: skipped (<reason_code>)` to `validation-log.txt`, note it in
+   the summary, and proceed with the Claude adversary verdict unchanged.
+   Otherwise write the adapted verdict to
+   `.claude/agentic/reviewer-verdicts/<goal-id>.codex.json` and the raw companion
+   `.result` (if you captured it) to `<goal-id>.codex.raw.json`.
+
+5. **Merge into one aggregate verdict** (route ONCE on the aggregate — do not
+   route each source separately):
+   ```bash
+   ${CLAUDE_PLUGIN_ROOT}/bin/codex_adapter.py merge \
+     ".claude/agentic/reviewer-verdicts/<goal-id>.adversary.json" \
+     ".claude/agentic/reviewer-verdicts/<goal-id>.codex.json"
+   ```
+   This prints `{"verdict": <aggregate>, "concerns": [...]}`. The `merge` helper
+   prefixes Claude concerns with `[claude-adversary]` and preserves the
+   `[codex-adversary]` prefixes for provenance. Use the returned `verdict` as the
+   effective adversary verdict and the returned `concerns` as the concern set:
+   - aggregate `clean` → treat as the both-clean case (primary + Claude + Codex).
+   - aggregate `concern` → route the concerns to the auto-fix queue (existing rules).
+   - aggregate `blocking` → immediate escalation (existing rules).
+
+Codex failure **never blocks** the pipeline: if `codex_adapter.py merge` itself
+fails (non-zero exit) — or any earlier step in this subsection skipped or
+errored — the Claude adversary verdict stands alone and routing proceeds
+exactly as it does without Codex; log the failure to `validation-log.txt` and
+continue.
+
 **If the adversary verdict is also `clean`:**
 - Print: `Goal <goal-id> clean (primary + adversary)`
 - Call `bin/telegram-notify.sh digest "Goal <goal-id> passed primary + adversary review"` (queue-completion bookkeeping)
@@ -262,6 +322,7 @@ agentic-dev: reviewer run complete
   gate verdict:      .claude/agentic/verdicts/<goal-id>.json
   reviewer verdict:  .claude/agentic/reviewer-verdicts/<goal-id>.json
   adversary verdict: .claude/agentic/reviewer-verdicts/<goal-id>.adversary.json (if applicable)
+  codex adversary:   <ran (verdict) | skipped (reason_code) | disabled>
 
   verdict:           <clean|concern|blocking>
   routing decision:  <clean (both passes) | N mechanical concerns queued | escalated (judgment) | escalated (blocking)>
