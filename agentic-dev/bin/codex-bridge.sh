@@ -8,6 +8,22 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TIMEOUT_SECS="${AGENTIC_CODEX_TIMEOUT:-300}"
 
+# _run_bounded <secs> <outfile> <cmd...> — run cmd with stdout to outfile, killing
+# it after <secs>. Returns cmd's exit status, or 124 on timeout. Portable (no `timeout`).
+_run_bounded() {
+  local secs="$1" outfile="$2"; shift 2
+  "$@" >"$outfile" 2>/dev/null &
+  local pid=$! elapsed=0
+  while kill -0 "$pid" 2>/dev/null; do
+    if [ "$elapsed" -ge "$secs" ]; then
+      kill -TERM "$pid" 2>/dev/null; sleep 1; kill -KILL "$pid" 2>/dev/null
+      return 124
+    fi
+    sleep 1; elapsed=$((elapsed+1))
+  done
+  wait "$pid" 2>/dev/null
+}
+
 discover() { python3 "$SCRIPT_DIR/codex_discovery.py"; }
 
 # Map the companion's setup --json to a reason_code. Args: <setup-json>
@@ -36,7 +52,13 @@ preflight() {
 
   local companion; companion="$(echo "$disc" | python3 -c 'import json,sys;print(json.load(sys.stdin)["companion_path"])')"
   local setup_json reason
-  setup_json="$(node "$companion" setup --json 2>/dev/null)" || setup_json='{}'
+  local setup_tmp; setup_tmp="$(mktemp)"
+  if _run_bounded "$TIMEOUT_SECS" "$setup_tmp" node "$companion" setup --json; then
+    setup_json="$(cat "$setup_tmp")"
+  else
+    setup_json='{}'
+  fi
+  rm -f "$setup_tmp"
   reason="$(_setup_reason "$setup_json")"
 
   echo "$disc" | python3 -c '

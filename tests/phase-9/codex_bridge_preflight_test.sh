@@ -42,5 +42,19 @@ check "preflight-not-authed" "$(echo "$P2" | python3 -c 'import json,sys;print(j
 printf '{"enabledPlugins":{"codex@openai-codex":false}}' > "$TMP/settings.json"
 P3="$(bash "$BRIDGE" preflight)"
 check "preflight-disabled" "$(echo "$P3" | python3 -c 'import json,sys;print(json.load(sys.stdin)["reason_code"])')" "plugin_disabled"
+bash "$BRIDGE" preflight >/dev/null 2>&1; check "preflight-disabled-exit0" "$?" "0"
+
+# re-enable the plugin, then make the fake companion's setup hang => enforced timeout
+printf '{"enabledPlugins":{"codex@openai-codex":true}}' > "$TMP/settings.json"
+cat > "$V/scripts/codex-companion.mjs" <<'JS'
+const arg = process.argv[2];
+if (arg === "setup") { setTimeout(() => {}, 60000); }
+JS
+start_ts=$(date +%s)
+P4="$(AGENTIC_CODEX_TIMEOUT=2 bash "$BRIDGE" preflight)"
+end_ts=$(date +%s)
+check "preflight-timeout-reason" "$(echo "$P4" | python3 -c 'import json,sys;print(json.load(sys.stdin)["reason_code"])')" "setup_failed"
+elapsed=$((end_ts - start_ts))
+if [ "$elapsed" -le 10 ]; then echo "PASS preflight-timeout-bounded (elapsed=${elapsed}s)"; else echo "FAIL preflight-timeout-bounded (elapsed=${elapsed}s)"; fails=$((fails+1)); fi
 
 if [ "$fails" -eq 0 ]; then echo "ALL PASS"; exit 0; else echo "$fails FAILED"; exit 1; fi
