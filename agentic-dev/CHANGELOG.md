@@ -3,6 +3,28 @@
 All notable changes to `agentic-dev` are documented here.
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [1.7.0] — 2026-07-26
+
+### Added
+- Optional Codex-backed adversary at the P5 review gate. When enabled and the
+  Codex plugin (`codex@openai-codex`) is ready, Codex runs as a second,
+  independent-model adversary alongside the Claude `reviewer-adversary`; their
+  concerns are unioned and routed once via an explicit aggregate verdict.
+- Reusable Codex bridge: `bin/codex-bridge.sh` (discover / preflight / review),
+  `bin/codex_discovery.py` (semantic version selection), `bin/codex_adapter.py`
+  (review-output → reviewer-verdict translation + merge).
+- `review.codex_adversary` config field (enum `auto`|`off`). `init` writes `auto`
+  for new projects and prints a setup recommendation when Codex is not ready.
+
+### Changed
+- `_run-reviewer` clean-verdict adversary branch augments with Codex when enabled.
+
+### Backward compatibility
+- The `review` block is optional; **absent ⇒ `off`**, so existing projects are
+  byte-for-byte unchanged on upgrade. Codex is strictly opt-in (re-run `init` or
+  set `review.codex_adversary: auto`). Any Codex unavailability degrades silently
+  to Claude-only and never blocks the pipeline.
+
 ## [1.6.0] — 2026-06-30
 
 Multi-component (fullstack monorepo) support. A project can now declare multiple components — e.g. `backend/` (pytest/ruff) and `frontend/` (npm test/eslint) — each with its own working directory and toolchain. The gate pipeline tests and lints only the components a goal actually touches. Fully backward compatible: existing single-command configs are unchanged.
